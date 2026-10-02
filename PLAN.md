@@ -25,16 +25,25 @@ Goal: take one MP3 as input and write 6 stems: `vocals`, `bass`, `drums`, `guita
 Runner for the primary model: `bs-roformer-infer` (MIT, inference only, downloads and hash-checks the checkpoint).
 Runner for the fallback: `demucs` or `audio-separator`.
 
-Not yet verified, to be settled in phase 2:
+### Phase 2 results (RTX 3060, 4:06 sample song, `spike/compare_models.py`)
 
-- Whether BS-RoFormer SW fits in 12 GB VRAM at default chunk size, and how long a 4-minute song takes.
-- The licence terms of the SW checkpoint. It is a community release; weights will never be committed to this repo either way.
+| | BS-RoFormer SW | `htdemucs_6s` |
+|---|---|---|
+| Inference time | 34.6 s (about 7x realtime) | under 21 s including model download and load |
+| Peak VRAM | 3.77 GB | 0.6 GB |
+| Six stems summed vs original mix | 32.2 dB (near-perfect reconstruction) | 17.6 dB |
+| `others` stem level vs mix | -82 dB (silent) | -22 dB |
+
+- Both models fit easily in 12 GB. BS-RoFormer SW is the default; `htdemucs_6s` stays available as an option.
+- SW's `others` stem is silent for the sample song. The output is not broken: fed a synth pad or a sine tone, the model routes all of it to `others`. For this song it assigned everything to the five named instruments.
+- The two models agree closely on vocals and drums (11–12 dB) and bass (8 dB), and differ most on guitars and piano (4.5–5 dB). Those two stems are where listening decides.
+- Licence of the SW checkpoint: the Hugging Face page (`enerjazzer/BS-ROFO-SW-Fixed`) lists it as unknown. Weights are downloaded to the user cache at run time and never committed to this repo.
 
 ## Phases
 
 0. **Repo** — done. `github.com/zeberity123/ut_2_stems` (public), local repo in `C:\ut_stems` on `main`, remote `origin` set.
 1. **Environment** — done. Packages installed into the default Python 3.10 (no venv, so they are usable from other folders): `torch` CUDA build, `bs-roformer-infer`, `demucs`; see `requirements.txt`. ffmpeg via `winget install Gyan.FFmpeg`. `.gitignore` for weights, audio and outputs. `torchaudio` is deliberately not installed: neither package needs it and its latest build pins an older torch.
-2. **Spike** — run both models on `audio_sample/だから僕は音楽を辞めた.mp3`; record run time and peak VRAM; listen to guitar and piano stems. Pick the model from the results.
+2. **Spike** — done, results above. Run both models on `audio_sample/だから僕は音楽を辞めた.mp3`; record run time and peak VRAM; listen to guitar and piano stems. Pick the model from the results.
 3. **CLI** — `python -m ut_stems song.mp3 [-o out_dir] [--model ...]`:
    - validate input, decode MP3 to 44.1 kHz stereo
    - separate on GPU, fall back to CPU if no CUDA
