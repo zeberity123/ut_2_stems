@@ -82,8 +82,8 @@ The `ut-stems` command works from any folder.
 ```
 ut-stems "song.mp3"
 ut-stems "song.mp3" -o D:\stems
-ut-stems "first.mp3" "second.mp3" "https://youtu.be/CkvWJNt77mU"
-ut-stems "https://youtu.be/CkvWJNt77mU" --stems vocals,bass,drums,guitars
+ut-stems "first.mp3" "second.mp3" "https://youtu.be/suv0x6HfRhw"
+ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 ```
 
 | Option | Meaning | Default |
