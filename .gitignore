@@ -1,0 +1,36 @@
+# audio in/out — never commit songs or stems
+audio_sample/
+output/
+outputs/
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg
+
+# model weights and caches
+models/
+checkpoints/
+*.ckpt
+*.pth
+*.pt
+*.th
+*.onnx
+*.gguf
+*.safetensors
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+
+# editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
