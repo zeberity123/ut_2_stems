@@ -23,10 +23,10 @@ On an RTX 3060 a 4-minute song takes about a minute and uses under 4 GB of VRAM.
 ## Requirements
 
 - Windows 10/11
-- Python 3.10 or newer, on PATH
-- An NVIDIA GPU (it also runs on CPU, much slower)
-- ffmpeg on PATH: `winget install Gyan.FFmpeg`
-- Node.js for the desktop window and for YouTube downloads: `winget install OpenJS.NodeJS.LTS`
+- Python 3.10 or newer, on PATH (`winget install Python.Python.3.10`)
+- An NVIDIA GPU with a current driver (it also runs on CPU, much slower)
+- About 10 GB of free disk space
+- ffmpeg and Node.js: `setup.bat` installs both with winget if they are missing
 
 ## Setup
 
@@ -36,9 +36,21 @@ cd ut_2_stems
 setup.bat
 ```
 
-`setup.bat` installs the Python packages into your default Python (no virtual environment), then
-Electron. The first separation downloads the model checkpoint (about 670 MB) to
+Without git, use **Code > Download ZIP** on GitHub, unzip, and run `setup.bat` in the folder.
+
+`setup.bat` does four things:
+
+1. installs ffmpeg if it is missing
+2. installs Node.js if it is missing (for the desktop window and for YouTube downloads)
+3. installs the Python packages into your default Python, with no virtual environment. PyTorch is
+   a download of about 2.5 GB; an existing PyTorch is kept as it is.
+4. installs Electron for the desktop window
+
+If it had to install ffmpeg or Node.js, start `run.bat` from a new window so they are found.
+The first separation downloads the model checkpoint (about 670 MB) to
 `%USERPROFILE%\.cache\bs-roformer-infer`.
+
+The repository holds only code. Songs, separated stems and model files are never uploaded.
 
 ## Use
 
