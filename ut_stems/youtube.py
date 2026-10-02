@@ -43,11 +43,13 @@ class _Quiet:
 
 
 def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = lambda f: None,
-                 cancel: threading.Event | None = None, bitrate: str = "320k") -> tuple[Path, str]:
+                 cancel: threading.Event | None = None, bitrate: str = "320k",
+                 name: str | None = None) -> tuple[Path, str]:
     """Download one video's audio and save it as ``<dest_dir>/<title>.mp3``.
 
     Returns the MP3 path and the video title. Playlist parameters in the link are
-    ignored; only the linked video is downloaded.
+    ignored; only the linked video is downloaded. ``name`` replaces the title in
+    the file name.
     """
     import yt_dlp
 
@@ -106,7 +108,7 @@ def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = l
         raise RuntimeError("The YouTube download did not produce an audio file.")
 
     title = info.get("title") or info.get("id") or "audio"
-    target = dest_dir / f"{sanitize_filename(title)}.mp3"
+    target = dest_dir / f"{sanitize_filename(name or title)}.mp3"
     try:
         if cancel is not None and cancel.is_set():
             raise Cancelled()

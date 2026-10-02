@@ -64,6 +64,23 @@ const assert = require('node:assert/strict');
     assert.equal(await page.locator('#separate-label').textContent(),
       sources.length > 1 ? `Separate ${sources.length} songs` : 'Separate stems');
 
+    // A song can be renamed before it is separated: Esc leaves the name alone, Enter saves it.
+    if (sources.length > 1) {
+      const first = page.locator('.song-item').first();
+      const original = await first.locator('.song-title').textContent();
+      await first.locator('.song-main').dblclick();
+      await page.locator('.song-rename-input').fill('not this');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.song-rename-input').count(), 0);
+      assert.equal(await first.locator('.song-title').textContent(), original);
+      await first.locator('.song-rename').click();
+      assert.equal(await page.locator('.song-rename-input').inputValue(), original);
+      await page.locator('.song-rename-input').fill('renamed clip');
+      await screenshot('rename');
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => document.querySelector('.song-title').textContent === 'renamed clip');
+    }
+
     await page.locator('#output').fill(output);
     await page.locator('#output').dispatchEvent('change');
     for (const chip of await page.locator('#stem-chips .chip').all()) {
@@ -97,6 +114,8 @@ const assert = require('node:assert/strict');
     // The stage followed the queue and now shows the last song.
     await page.waitForFunction(() => !document.querySelector('#mixer').hidden);
     const titles = await page.locator('.song-title').allTextContents();
+    if (sources.length > 1) assert.equal(titles[0], 'renamed clip', 'The new name is kept');
+    assert.equal(await page.locator('.song-rename:visible').count(), 0, 'Finished songs cannot be renamed');
     assert.equal(await page.locator('#song').textContent(), titles.at(-1));
     for (const title of titles) {
       for (const stem of wanted) {

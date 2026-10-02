@@ -138,6 +138,40 @@ def test_cancel_and_remove(server, tmp_path):
         ("running", "Cancelling…"), ("waiting", "")]
 
 
+def test_rename(server, tmp_path, monkeypatch):
+    command(server, "add", sources=[str(audio_file(tmp_path, name)) for name in ("a.mp3", "b.mp3", "c.mp3")])
+    first, second, third = server.workspace.songs
+
+    state = command(server, "rename", id=first.id, name='  AC/DC: "Live"  ')[1]
+    assert state["songs"][0]["title"] == "AC_DC_ _Live_"  # the name is used for the files
+    assert "Type a name" in command(server, "rename", id=first.id, name="   ")[1]["error"]
+    assert command(server, "rename", id=first.id)[0] == 400
+    assert command(server, "rename", id=99, name="nobody")[0] == 200
+
+    # only before separation: a running or finished song keeps its name
+    second.status, third.status = "running", "done"
+    for song in (second, third):
+        status, body = command(server, "rename", id=song.id, name="late")
+        assert status == 400 and "not been separated" in body["error"]
+    second.status, third.status = "failed", "failed"
+
+    # the new name reaches the pipeline, the other songs go without one
+    names = {}
+
+    def fake_run(source, name=None, **settings):
+        names[source] = name
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr("ut_stems.pipeline.run", fake_run)
+    command(server, "add", sources=[str(audio_file(tmp_path, "d.mp3"))])
+    command(server, "start", stems=["vocals"])
+    for _ in range(200):
+        if not json.loads(call(server, "/api/state")[1])["busy"]:
+            break
+        time.sleep(0.05)
+    assert names == {first.source: "AC_DC_ _Live_", str(tmp_path / "d.mp3"): None}
+
+
 def test_results_and_audio_streaming(server, tmp_path):
     path = tmp_path / "song_vocals.mp3"
     path.write_bytes(bytes(range(100)))

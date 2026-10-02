@@ -219,12 +219,41 @@ function playbackLoop() {
 
 // ---------------------------------------------------------------- song list
 const STATUS_TEXT = {waiting: 'Ready', queued: 'In the queue', failed: 'Failed'};
+const RENAMABLE = ['waiting', 'queued'];  // a song can be renamed until it is separated
 
 function songStatus(song) {
   if (song.status === 'running') return song.message;
   if (song.status === 'done') return `${song.stems} stems · ${song.seconds} s`;
   if (song.status === 'waiting' && song.message === 'Cancelled') return 'Cancelled';
   return STATUS_TEXT[song.status] ?? song.status;
+}
+
+// Type a new name over the title. Enter or leaving the field saves, Esc cancels,
+// and an empty name keeps the old one.
+function startRename(id) {
+  const row = songRows.get(id);
+  if (!row || row.endRename || !RENAMABLE.includes(row.item.dataset.status)) return;
+  const editor = document.createElement('input');
+  editor.type = 'text';
+  editor.className = 'song-rename-input';
+  editor.spellcheck = false;
+  editor.autocomplete = 'off';
+  editor.value = row.title.textContent;
+  editor.setAttribute('aria-label', 'Song name');
+  row.endRename = save => {
+    row.endRename = null;
+    const name = editor.value.trim();
+    editor.remove();
+    if (save && name && name !== row.title.textContent) command('rename', {id, name});
+  };
+  editor.addEventListener('keydown', event => {
+    if (event.key === 'Enter') row.endRename?.(true);
+    else if (event.key === 'Escape') row.endRename?.(false);
+  });
+  editor.addEventListener('blur', () => row.endRename?.(true));
+  row.item.append(editor);
+  editor.focus();
+  editor.select();
 }
 
 function renderSongs(songs) {
@@ -244,14 +273,20 @@ function renderSongs(songs) {
       const status = document.createElement('small');
       main.append(title, status);
       main.addEventListener('click', () => { selectedId = song.id; follow = false; render(); });
+      main.addEventListener('dblclick', () => startRename(song.id));
+      const rename = document.createElement('button');
+      rename.className = 'song-rename';
+      rename.textContent = '✎';
+      rename.title = 'Rename (or double-click the song)';
+      rename.addEventListener('click', () => startRename(song.id));
       const remove = document.createElement('button');
       remove.className = 'song-remove';
       remove.textContent = '×';
       remove.addEventListener('click', () => command('remove', {id: song.id}));
       const bar = document.createElement('i');
-      item.append(main, remove, bar);
+      item.append(main, rename, remove, bar);
       list.append(item);
-      row = {item, main, title, status, remove, bar};
+      row = {item, main, title, status, rename, remove, bar, endRename: null};
       songRows.set(song.id, row);
     }
     row.item.dataset.id = song.id;
@@ -261,6 +296,10 @@ function renderSongs(songs) {
     row.title.textContent = song.title;
     row.main.title = song.title;
     row.status.textContent = songStatus(song);
+    const renamable = RENAMABLE.includes(song.status);
+    if (!renamable) row.endRename?.(false);
+    row.rename.hidden = !renamable;
+    row.rename.setAttribute('aria-label', `Rename ${song.title}`);
     row.remove.hidden = song.status === 'running';
     row.remove.setAttribute('aria-label', `Remove ${song.title}`);
     row.bar.style.width = `${song.status === 'running' ? Math.round(song.progress * 100) : 0}%`;

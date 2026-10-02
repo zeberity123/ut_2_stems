@@ -55,6 +55,12 @@ def test_selected_stems_only(clip, tmp_path):
         f"test clip_{name}.mp3" for name in ["vocals", "bass", "drums", "guitars"])
 
 
+def test_name_replaces_the_song_name_in_the_files(clip, tmp_path):
+    result = run(str(clip), tmp_path, stems=["vocals"], name="Renamed: song")
+    assert result.song == "Renamed_ song"
+    assert [path.name for path in tmp_path.iterdir()] == ["Renamed_ song_vocals.mp3"]
+
+
 def test_others_collects_what_was_not_selected(clip, tmp_path):
     result = run(str(clip), tmp_path, stems=["bass", "others"])
     mix = decode(clip)

@@ -129,8 +129,14 @@ main { flex: 1; min-height: 0; display: flex; }
 .song-main small { display: block; margin-top: 4px; font-size: 10px; font-weight: 400; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .song-item[data-status=done] small { color: #8cddd5; }
 .song-item[data-status=failed] small { color: #ffb58f; }
-.song-remove { flex: none; width: 30px; padding: 0; background: transparent; border: 0; border-radius: 0; color: #93a9a7; font-size: 16px; }
-.song-remove:hover:not(:disabled) { background: #ffffff0a; color: var(--ink); }
+.song-rename, .song-remove { flex: none; width: 30px; padding: 0; background: transparent; border: 0; border-radius: 0; color: #93a9a7; font-size: 16px; }
+.song-rename { width: 26px; font-size: 13px; }
+.song-rename:hover:not(:disabled), .song-remove:hover:not(:disabled) { background: #ffffff0a; color: var(--ink); }
+input.song-rename-input {
+  position: absolute; left: 5px; top: 5px; width: calc(100% - 10px); padding: 5px 7px;
+  font-size: 12px; font-weight: 600; border-color: var(--accent); border-radius: 7px; background: var(--canvas);
+}
+input.song-rename-input:focus-visible { outline-offset: 0; }
 .song-item > i { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); transition: width .3s; }
 .stage {
   position: relative; flex: 1; min-width: 0; min-height: 0; border-radius: 16px; overflow: hidden; display: flex;

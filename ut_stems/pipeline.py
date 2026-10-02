@@ -12,7 +12,7 @@ import numpy as np
 
 from . import DEFAULT_MODEL, MODEL_NAMES, STEMS, Cancelled
 from .audio import SR, decode, encode_mp3
-from .youtube import download_mp3, is_url
+from .youtube import download_mp3, is_url, sanitize_filename
 
 Report = Callable[[str, float], None]
 PEAK_BINS = 800
@@ -50,11 +50,13 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
         overlap: int = 2, bitrate: str = "320k", device: str = "auto",
         report: Report = lambda message, fraction: None,
         cancel: threading.Event | None = None,
-        on_song: Callable[[str], None] | None = None) -> Result:
+        on_song: Callable[[str], None] | None = None,
+        name: str | None = None) -> Result:
     """Separate one song and write the selected stems as MP3 files into ``out_dir``.
 
     ``on_song`` is called with the song name as soon as it is known, which for a
-    YouTube link is after the download.
+    YouTube link is after the download. ``name`` replaces the file name or video
+    title as the song name in the files that are written.
     """
     if stems is None:
         stems = list(STEMS)
@@ -77,7 +79,7 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
     started = time.time()
     if is_url(source):
         report("Downloading audio from YouTube…", 0.0)
-        path, _title = download_mp3(source, out_dir, cancel=cancel, bitrate=bitrate,
+        path, _title = download_mp3(source, out_dir, cancel=cancel, bitrate=bitrate, name=name,
                                     progress=lambda f: report(f"Downloading audio from YouTube… {f:.0%}", 0.12 * f))
         base = 0.15
     else:
@@ -85,7 +87,7 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
         if not path.is_file():
             raise FileNotFoundError(f"File not found: {path}")
         base = 0.0
-    song = path.stem
+    song = sanitize_filename(name) if name else path.stem
     if on_song is not None:
         on_song(song)
 

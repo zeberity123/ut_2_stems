@@ -37,6 +37,7 @@ class Song:
     id: int
     source: str
     title: str
+    name: str | None = None  # set by renaming; replaces the song name in the output files
     status: str = "waiting"
     settings: dict | None = None
     message: str = ""
@@ -131,6 +132,8 @@ class Workspace:
                     raise ValueError("Cancel the song before removing it.")
                 if song is not None:
                     self.songs.remove(song)
+        elif action == "rename":
+            self.rename(data.get("id"), data.get("name"))
         elif action == "clear-finished":
             with self.lock:
                 self.songs = [song for song in self.songs if song.status not in ("done", "failed")]
@@ -172,6 +175,19 @@ class Workspace:
                 self.songs.append(Song(self.next_id, source, title))
                 self.next_id += 1
 
+    def rename(self, song_id, name) -> None:
+        """Give a song that has not been separated yet the name its files are written under."""
+        from .youtube import sanitize_filename
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Type a name for the song.")
+        with self.lock:
+            song = self._find(song_id)
+            if song is None:
+                return
+            if song.status not in ("waiting", "queued"):
+                raise ValueError("Only a song that has not been separated yet can be renamed.")
+            song.name = song.title = sanitize_filename(name)
+
     def start(self, data: dict) -> None:
         """Queue every waiting song with the given settings and make sure the worker runs."""
         stems = data.get("stems", list(STEMS))
@@ -209,7 +225,7 @@ class Workspace:
                     self.busy = False
                     return
                 song.status, song.message, song.started = "running", "Starting…", time.time()
-                settings = song.settings
+                settings, name = song.settings, song.name
                 self.cancel.clear()
 
             def report(message, fraction, song=song):
@@ -222,7 +238,8 @@ class Workspace:
                     song.title = name
 
             try:
-                result = run(song.source, report=report, cancel=self.cancel, on_song=on_song, **settings)
+                result = run(song.source, report=report, cancel=self.cancel, on_song=on_song,
+                             name=name, **settings)
                 with self.lock:
                     song.status, song.result, song.progress = "done", result, 1.0
                     song.message = f"Done in {result.seconds:.0f} s · {len(result.stems)} stems"

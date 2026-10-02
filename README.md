@@ -69,6 +69,8 @@ To separate several songs, add them one by one with **Add** (or Enter), or pick 
 once. They appear in the **Songs** list on the left and nothing starts until you press
 **Separate**. Then:
 
+- before a song is separated you can rename it: double-click it in the list or press **✎**, type
+  the name and press Enter (Esc cancels). The files are then written under that name.
 - the songs run one after another with the stems, folder and model set at that moment
 - you can open and play a finished song while the next one is running
 - songs added during a run wait until you press **Separate** again
