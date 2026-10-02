@@ -1,0 +1,8 @@
+# Install PyTorch first, from the CUDA index (the PyPI wheel on Windows is CPU-only):
+#   python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu126
+# Then:
+#   python -m pip install -r requirements.txt
+# ffmpeg must also be on PATH (winget install Gyan.FFmpeg).
+torch>=2.14
+bs-roformer-infer==0.1.5
+demucs==4.1.0

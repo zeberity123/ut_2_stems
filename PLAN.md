@@ -9,9 +9,10 @@ Goal: take one MP3 as input and write 6 stems: `vocals`, `bass`, `drums`, `guita
 | OS | Windows 11 Pro |
 | GPU | NVIDIA RTX 3060, 12 GB VRAM |
 | RAM / free disk | 32 GB / ~74 GB on C: |
-| Python | 3.10.11 (only version installed) |
+| Python | 3.10.11 (only version installed), pip 26.2.1 |
+| PyTorch | 2.14.1+cu126, CUDA confirmed working on the 3060 |
 | git | 2.52, identity `zeberity123` |
-| ffmpeg | **missing** — needed to decode MP3 |
+| ffmpeg | 9.0.2 (winget, Gyan full build, includes libmp3lame) |
 | gh CLI | missing — not required, git + stored credential work |
 
 ## Model choice
@@ -32,7 +33,7 @@ Not yet verified, to be settled in phase 2:
 ## Phases
 
 0. **Repo** — done. `github.com/zeberity123/ut_2_stems` (public), local repo in `C:\ut_stems` on `main`, remote `origin` set.
-1. **Environment** — packages installed into the default Python 3.10 (no venv, so they are usable from other folders), PyTorch CUDA build, ffmpeg (via `winget install Gyan.FFmpeg`), `.gitignore` for weights, audio and outputs.
+1. **Environment** — done. Packages installed into the default Python 3.10 (no venv, so they are usable from other folders): `torch` CUDA build, `bs-roformer-infer`, `demucs`; see `requirements.txt`. ffmpeg via `winget install Gyan.FFmpeg`. `.gitignore` for weights, audio and outputs. `torchaudio` is deliberately not installed: neither package needs it and its latest build pins an older torch.
 2. **Spike** — run both models on `audio_sample/だから僕は音楽を辞めた.mp3`; record run time and peak VRAM; listen to guitar and piano stems. Pick the model from the results.
 3. **CLI** — `python -m ut_stems song.mp3 [-o out_dir] [--model ...]`:
    - validate input, decode MP3 to 44.1 kHz stereo
