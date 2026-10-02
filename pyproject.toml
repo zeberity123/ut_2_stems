@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ut-stems"
+version = "0.1.0"
+description = "Split a song into six MP3 stems: vocals, bass, drums, guitars, piano, others"
+requires-python = ">=3.10"
+dependencies = [
+    # Install the CUDA build of torch first; see requirements.txt.
+    "torch>=2.1",
+    "numpy",
+    "pyyaml",
+    "ml-collections",
+    "bs-roformer-infer>=0.1.5",
+    "demucs>=4.1",
+]
+
+[project.scripts]
+ut-stems = "ut_stems.cli:main"
+
+[tool.setuptools]
+packages = ["ut_stems"]

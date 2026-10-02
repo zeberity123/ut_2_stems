@@ -44,10 +44,12 @@ Runner for the fallback: `demucs` or `audio-separator`.
 0. **Repo** — done. `github.com/zeberity123/ut_2_stems` (public), local repo in `C:\ut_stems` on `main`, remote `origin` set.
 1. **Environment** — done. Packages installed into the default Python 3.10 (no venv, so they are usable from other folders): `torch` CUDA build, `bs-roformer-infer`, `demucs`; see `requirements.txt`. ffmpeg via `winget install Gyan.FFmpeg`. `.gitignore` for weights, audio and outputs. `torchaudio` is deliberately not installed: neither package needs it and its latest build pins an older torch.
 2. **Spike** — done, results above. Run both models on `audio_sample/だから僕は音楽を辞めた.mp3`; record run time and peak VRAM; listen to guitar and piano stems. Pick the model from the results.
-3. **CLI** — `python -m ut_stems song.mp3 [-o out_dir] [--model ...]`:
-   - validate input, decode MP3 to 44.1 kHz stereo
-   - separate on GPU, fall back to CPU if no CUDA
-   - write `out_dir/<songname>_{vocals,bass,drums,guitars,piano,others}.mp3` at 320 kbps
+3. **CLI** — done. `ut-stems song.mp3 [-o out_dir] [--model bs_roformer_sw|htdemucs_6s] [--overlap 2|3|4] [--bitrate 320k] [--device auto|cuda|cpu]` (same as `python -m ut_stems ...`):
+   - installed into the default Python with `pip install -e .`, so the command works from any folder
+   - validates input, decodes to 44.1 kHz stereo with ffmpeg
+   - separates on GPU, falls back to CPU if no CUDA
+   - writes `out_dir/<songname>_{vocals,bass,drums,guitars,piano,others}.mp3` at 320 kbps (default `out_dir` is `./output`)
+   - checked on the sample: about 55 s end to end for the 4:06 song; the decoded MP3 stems sum back to the original at 31.8 dB
 4. **Verification** — check that the 6 stems sum back to the original mix within a small residual; a test on a short clip; README with install and usage.
 5. **Optional later** — batch folder mode, simple web UI, ensembling models for better guitar/piano.
 
