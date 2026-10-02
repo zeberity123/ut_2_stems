@@ -4,6 +4,9 @@
 #   python -m pip install -r requirements.txt
 #   python -m pip install -e .        (adds the ut-stems command)
 # ffmpeg must also be on PATH (winget install Gyan.FFmpeg).
+# setup.bat runs all of the above.
 torch>=2.14
 bs-roformer-infer==0.1.5
 demucs==4.1.0
+yt-dlp[default]>=2026.8.19
+pytest

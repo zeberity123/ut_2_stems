@@ -1,25 +1,35 @@
-"""Command line: ut-stems song.mp3  ->  <out>/<songname>_<instrument>.mp3 for six stems."""
+"""Command line: ut-stems song.mp3  ->  <out>/<songname>_<instrument>.mp3 for each stem."""
 
 from __future__ import annotations
 
 import argparse
 import sys
-import time
 from pathlib import Path
 
-from . import STEMS, __version__
-from .audio import SR, AudioError, decode, encode_mp3
-from .models import DEFAULT_MODEL, MODELS
+from . import DEFAULT_MODEL, MODEL_NAMES, STEMS, __version__
+from .audio import AudioError
+
+
+def _stem_list(text: str) -> list[str]:
+    names = [name.strip().lower() for name in text.split(",") if name.strip()]
+    unknown = [name for name in names if name not in STEMS]
+    if unknown or not names:
+        raise argparse.ArgumentTypeError(
+            f"choose from {', '.join(STEMS)} (comma separated); got {text!r}")
+    return names
 
 
 def _parse(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="ut-stems",
-        description="Split a song into six MP3 stems: " + ", ".join(STEMS) + ".")
-    ap.add_argument("input", type=Path, help="audio file to separate (MP3 or anything ffmpeg reads)")
+        description="Split a song into MP3 stems: " + ", ".join(STEMS) + ".")
+    ap.add_argument("input", help="audio file (MP3 or anything ffmpeg reads) or a YouTube link")
     ap.add_argument("-o", "--out", type=Path, default=Path("output"),
                     help="folder for the stems (default: ./output)")
-    ap.add_argument("--model", choices=list(MODELS), default=DEFAULT_MODEL,
+    ap.add_argument("--stems", type=_stem_list, default=list(STEMS), metavar="LIST",
+                    help="comma-separated stems to write, e.g. vocals,bass,drums,guitars "
+                         "(default: all six). 'others' collects everything not selected.")
+    ap.add_argument("--model", choices=MODEL_NAMES, default=DEFAULT_MODEL,
                     help=f"separation model (default: {DEFAULT_MODEL})")
     ap.add_argument("--overlap", type=int, default=2, choices=[2, 3, 4],
                     help="chunk overlap factor; higher is slower and slightly smoother (default: 2)")
@@ -36,43 +46,33 @@ def main(argv: list[str] | None = None) -> int:
         stream.reconfigure(errors="replace")
     args = _parse(argv)
 
-    if not args.input.is_file():
+    from .pipeline import run
+    from .youtube import is_url
+
+    if not is_url(args.input) and not Path(args.input).is_file():
         print(f"error: input file not found: {args.input}", file=sys.stderr)
         return 2
 
+    last = ""
+
+    def report(message: str, fraction: float) -> None:
+        nonlocal last
+        # Percentages change constantly; print each stage once.
+        stage = message.split("…")[0]
+        if stage != last:
+            last = stage
+            print(stage + "…", flush=True)
+
     try:
-        mix = decode(args.input)
-    except AudioError as e:
+        result = run(args.input, args.out, stems=args.stems, model=args.model,
+                     overlap=args.overlap, bitrate=args.bitrate, device=args.device, report=report)
+    except (AudioError, RuntimeError, ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
-    # Imported late so --help and input errors do not pay for loading torch.
-    import torch
-    from .models import separate
-
-    if args.device == "cuda" and not torch.cuda.is_available():
-        print("error: --device cuda requested but CUDA is not available", file=sys.stderr)
-        return 1
-    if args.device == "auto":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if device.type == "cpu":
-            print("CUDA is not available, running on CPU. This will be slow.")
-    else:
-        device = torch.device(args.device)
-
-    song = args.input.stem
-    print(f"{song}: {mix.shape[1] / SR:.1f} s, model={args.model}, device={device}")
-    start = time.time()
-    stems = separate(mix, model=args.model, device=device, overlap=args.overlap)
-
-    args.out.mkdir(parents=True, exist_ok=True)
-    try:
-        for name in STEMS:
-            path = args.out / f"{song}_{name}.mp3"
-            encode_mp3(stems[name], path, bitrate=args.bitrate)
-            print(f"  {path}")
-    except AudioError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    print(f"done in {time.time() - start:.1f} s")
+    print(f"{result.song}: {result.duration:.1f} s, model={result.model}")
+    for stem in result.stems:
+        note = "  (silent)" if stem.level_db < -60 else ""
+        print(f"  {stem.path}{note}")
+    print(f"done in {result.seconds:.1f} s")
     return 0

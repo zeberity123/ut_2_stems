@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <meta name="theme-color" content="#0e1817">
+  <title>UT Stems</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><img src="icon.svg" alt=""><div>UT Stems<span>SONG TO STEMS</span></div></div>
+    <div class="header-actions"><span id="device" class="device-chip" hidden></span></div>
+  </header>
+  <main>
+    <section class="workspace-layout" aria-label="Stem separation workspace">
+      <div class="stage-area">
+        <div id="stage" class="stage">
+          <div id="empty" class="empty-state">
+            <div class="stem-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <h2>Load a song</h2>
+            <p>Paste a YouTube link or choose an audio file.<br>Then pick the stems you want and separate.</p>
+          </div>
+          <div id="working" class="empty-state" role="status" aria-live="polite" hidden>
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <h2 id="working-title">Working…</h2>
+            <p id="working-note">A 4-minute song takes about a minute. The very first run also downloads the model (about 670 MB).</p>
+          </div>
+          <div id="mixer" class="mixer" hidden>
+            <div class="mixer-heading">
+              <div class="mixer-title"><p class="eyebrow">SEPARATED</p><h1 id="song"></h1><p id="meta" class="help"></p></div>
+              <button id="open-folder">Open folder <span aria-hidden="true">↗</span></button>
+            </div>
+            <div class="transport">
+              <button id="play" class="primary" aria-label="Play"><span id="play-icon" class="playback-icon play-icon" aria-hidden="true"></span><span id="play-label">Play</span></button>
+              <output id="current-time">0:00</output>
+              <input type="range" id="seek" min="0" max="1" step="0.01" value="0" aria-label="Song position">
+              <output id="duration">0:00</output>
+            </div>
+            <div id="tracks" class="tracks" aria-label="Stems"></div>
+            <p class="help mixer-help">S plays one stem alone, M mutes it. Click a waveform to jump to that point.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="sidebar">
+        <div class="sidebar-scroll">
+        <section class="control-section">
+          <div class="section-heading"><h2>Source</h2><span class="step-dot">1</span></div>
+          <label class="sr-only" for="source">YouTube link or audio file path</label>
+          <input id="source" type="text" placeholder="Paste a YouTube link…" autocomplete="off" spellcheck="false">
+          <button id="choose-file" class="full">Choose file</button>
+          <p class="help">YouTube · MP3 · WAV · FLAC · M4A. You can also drop a file on the window.</p>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>Stems</h2><span class="step-dot">2</span></div>
+          <div id="stem-chips" class="chips" role="group" aria-label="Stems to write"></div>
+          <div class="chip-actions"><button id="stems-all" class="text-button">Select all</button><button id="stems-none" class="text-button">Clear</button></div>
+          <p class="help">Others collects everything that is not in a selected stem.</p>
+        </section>
+        <section class="control-section">
+          <div class="section-heading"><h2>Output</h2><span class="step-dot">3</span></div>
+          <label class="field-label" for="output">Folder</label>
+          <div class="button-row"><input id="output" type="text" spellcheck="false"><button id="choose-folder" class="fixed">Change</button></div>
+          <p class="help">Files are named <b>song_instrument.mp3</b> at 320 kbps.</p>
+          <details id="advanced">
+            <summary>Advanced <svg class="settings-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7 5 5 5-5"/></svg></summary>
+            <label class="field-label" for="model">Model</label>
+            <select id="model">
+              <option value="bs_roformer_sw">BS-RoFormer SW (best quality)</option>
+              <option value="htdemucs_6s">HT-Demucs 6s (faster)</option>
+            </select>
+            <label class="field-label" for="overlap">Chunk blending</label>
+            <select id="overlap">
+              <option value="2">Standard</option>
+              <option value="4">Smoother (about 2× slower)</option>
+            </select>
+          </details>
+        </section>
+        </div>
+        <div class="sidebar-footer"><button id="separate" class="primary full">Separate stems <span aria-hidden="true">→</span></button></div>
+      </aside>
+    </section>
+  </main>
+  <footer class="status-bar">
+    <span id="status-dot" class="status-dot"></span><span id="status" role="status">Connecting…</span>
+    <progress id="progress" max="1" value="0" hidden></progress>
+    <button id="cancel" class="text-button" hidden>Cancel</button>
+    <span id="elapsed-time" hidden></span>
+    <span class="local-label">RUNS ON THIS PC</span>
+  </footer>
+  <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="Dismiss error">×</button></div>
+  <div id="drop-hint" class="drop-hint" hidden>Drop the audio file to load it</div>
+</body>
+</html>

@@ -23,6 +23,20 @@ def _ffmpeg() -> str:
     return exe
 
 
+def ffmpeg_dir() -> str:
+    return str(Path(_ffmpeg()).parent)
+
+
+def transcode_mp3(source: Path, target: Path, bitrate: str = "320k") -> None:
+    """Convert any audio/video file to an MP3, dropping video."""
+    cmd = [_ffmpeg(), "-v", "error", "-y", "-i", str(source), "-vn",
+           "-c:a", "libmp3lame", "-b:a", bitrate, str(target)]
+    proc = subprocess.run(cmd, capture_output=True)
+    if proc.returncode != 0:
+        detail = proc.stderr.decode("utf-8", errors="replace").strip()
+        raise AudioError(f"ffmpeg could not convert {source.name}: {detail}")
+
+
 def decode(path: Path) -> np.ndarray:
     """Decode an audio file to float32 stereo 44.1 kHz, shape (2, samples)."""
     cmd = [_ffmpeg(), "-v", "error", "-i", str(path), "-vn", "-f", "f32le",

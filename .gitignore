@@ -34,3 +34,7 @@ dist/
 .idea/
 Thumbs.db
 .DS_Store
+
+# node / electron
+node_modules/
+diagnostics/

@@ -1,6 +1,6 @@
 # ut_2_stems — plan
 
-Goal: take one MP3 as input and write 6 stems: `vocals`, `bass`, `drums`, `guitars`, `piano`, `others`.
+Goal: take one MP3 or a YouTube link as input and write up to 6 stems: `vocals`, `bass`, `drums`, `guitars`, `piano`, `others`.
 
 ## Machine (checked 2026-10-02)
 
@@ -50,11 +50,17 @@ Runner for the fallback: `demucs` or `audio-separator`.
    - separates on GPU, falls back to CPU if no CUDA
    - writes `out_dir/<songname>_{vocals,bass,drums,guitars,piano,others}.mp3` at 320 kbps (default `out_dir` is `./output`)
    - checked on the sample: about 55 s end to end for the 4:06 song; the decoded MP3 stems sum back to the original at 31.8 dB
-4. **Verification** — check that the 6 stems sum back to the original mix within a small residual; a test on a short clip; README with install and usage.
-5. **Optional later** — batch folder mode, simple web UI, ensembling models for better guitar/piano.
+4. **Desktop app, YouTube input, stem selection, verification** — done.
+   - **Desktop app**: Electron shell (`desktop/`) around a local Python server (`ut_stems/server.py`) and a web interface (`web/`), the same structure and look as `zeberity123/yt_to_score`. Source, stem and output controls on the right; the result opens as a mixer with a waveform, solo, mute and volume per stem and synchronised playback. Start it with `run.bat`.
+   - **YouTube input**: a link is downloaded as audio only and saved as `<title>.mp3` (320 kbps) next to the stems, using the yt-dlp settings from `zeberity123/ut_downloader`. Playlist parameters in the link are ignored.
+   - **Stem selection**: choose any of the six stems in the app, or `--stems vocals,bass,drums,guitars` on the command line. `others` collects everything that is not in a selected stem; if `others` is not selected, that audio is not written.
+   - **Separation loop**: `ut_stems/models.py` now runs its own chunked loop (progress and cancel for the app). Its raw output matches `bs_roformer.demix_track` to 1e-7 on the full sample song.
+   - **Tests**: `python -m pytest` (16 fast tests: audio, selection, input handling, server), `python -m pytest -m slow` (4 GPU tests on a short clip, including that the stems sum back to the song), `npm run test:desktop` (launches the app, separates a clip, checks the mixer and synchronised playback).
+   - **Checked by hand through the app** with both YouTube links: `3J5uLk1DJV0` (all six stems, 62 s) and `CkvWJNt77mU` (all six, 74 s; and vocals/bass/drums/guitars only, 67 s). For `CkvWJNt77mU` the model puts piano at -37.6 dB (one short blip) and `others` at -19 dB.
+5. **Optional later** — batch/queue of several songs, a packaged installer, Korean/Japanese interface text, ensembling models for better guitar/piano.
 
 ## Defaults assumed
 
 - Output is 320 kbps MP3 named `<songname>_<instrument>.mp3`. Lossless output is not a goal; clean separation between instruments is.
-- CLI first; no UI until the separation itself is good.
+- The command line and the desktop app share one pipeline (`ut_stems/pipeline.py`).
 - No audio files or model weights in the public repo.

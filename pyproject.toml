@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ut-stems"
-version = "0.1.0"
-description = "Split a song into six MP3 stems: vocals, bass, drums, guitars, piano, others"
+version = "0.2.0"
+description = "Split a song (file or YouTube link) into MP3 stems: vocals, bass, drums, guitars, piano, others"
 requires-python = ">=3.10"
 dependencies = [
     # Install the CUDA build of torch first; see requirements.txt.
@@ -15,6 +15,7 @@ dependencies = [
     "ml-collections",
     "bs-roformer-infer>=0.1.5",
     "demucs>=4.1",
+    "yt-dlp[default]>=2026.8.19",
 ]
 
 [project.scripts]
@@ -22,3 +23,8 @@ ut-stems = "ut_stems.cli:main"
 
 [tool.setuptools]
 packages = ["ut_stems"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["slow: runs the separation model on a GPU (select with -m slow)"]
+addopts = "-m 'not slow'"

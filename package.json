@@ -1,0 +1,17 @@
+{
+  "name": "ut-stems",
+  "productName": "UT Stems",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Desktop app that splits a song (file or YouTube link) into MP3 stems.",
+  "main": "desktop/main.cjs",
+  "author": "zeberity123",
+  "scripts": {
+    "start": "electron .",
+    "test:desktop": "node scripts/test-desktop.cjs"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "playwright": "1.63.0"
+  }
+}
