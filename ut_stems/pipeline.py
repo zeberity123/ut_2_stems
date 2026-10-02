@@ -49,8 +49,13 @@ def _peaks(audio: np.ndarray, scale: float) -> list[float]:
 def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str = DEFAULT_MODEL,
         overlap: int = 2, bitrate: str = "320k", device: str = "auto",
         report: Report = lambda message, fraction: None,
-        cancel: threading.Event | None = None) -> Result:
-    """Separate one song and write the selected stems as MP3 files into ``out_dir``."""
+        cancel: threading.Event | None = None,
+        on_song: Callable[[str], None] | None = None) -> Result:
+    """Separate one song and write the selected stems as MP3 files into ``out_dir``.
+
+    ``on_song`` is called with the song name as soon as it is known, which for a
+    YouTube link is after the download.
+    """
     if stems is None:
         stems = list(STEMS)
     if set(stems) - set(STEMS):
@@ -81,6 +86,8 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
             raise FileNotFoundError(f"File not found: {path}")
         base = 0.0
     song = path.stem
+    if on_song is not None:
+        on_song(song)
 
     check()
     report("Reading audio…", base)

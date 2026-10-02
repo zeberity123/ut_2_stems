@@ -9,12 +9,17 @@ const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(second
 let state = null;          // last state from the server
 let requesting = false;    // a command is in flight
 let failures = 0;          // consecutive failed polls
-let shownJob = null;       // job id the mixer was built for
+let shownId = null;        // song id the mixer was built for
+let selectedId = null;     // song selected in the list
+let follow = true;         // the selection follows the song being separated
+let loadingId = null;      // song whose result is being fetched
 let playing = false;
 let seeking = false;       // the user is dragging the seek bar
 let lastSync = 0;
 const selected = new Set();  // stems to write
 const tracks = new Map();    // stem -> {audio, row, canvas, peaks, solo, mute, volume}
+const results = new Map();   // song id -> finished result with waveforms
+const songRows = new Map();  // song id -> list row elements
 
 // ---------------------------------------------------------------- settings
 function stemList() { return (state?.stems ?? []).filter(stem => selected.has(stem)); }
@@ -90,7 +95,7 @@ function buildMixer(result) {
   pause();
   for (const track of tracks.values()) { track.audio.pause(); track.audio.removeAttribute('src'); track.audio.load(); }
   tracks.clear();
-  shownJob = result.job;
+  shownId = result.id;
   $('song').textContent = result.song;
   $('meta').textContent = `${clock(result.duration)} · ${result.stems.length} stems · ` +
     `${MODEL_LABELS[result.model] ?? result.model} · separated in ${Math.round(result.seconds)} s · ${result.folder}`;
@@ -102,7 +107,7 @@ function buildMixer(result) {
     row.className = 'track';
     row.dataset.stem = stem.name;
     row.style.setProperty('--stem', `var(--${stem.name})`);
-    const audio = new Audio(api.audioUrl(result.job, stem.name));
+    const audio = new Audio(api.audioUrl(result.id, stem.name));
     audio.preload = 'auto';
     const track = {stem: stem.name, audio, row, peaks: stem.peaks, solo: false, mute: false, volume: 1};
 
@@ -212,28 +217,107 @@ function playbackLoop() {
   requestAnimationFrame(playbackLoop);
 }
 
+// ---------------------------------------------------------------- song list
+const STATUS_TEXT = {waiting: 'Ready', queued: 'In the queue', failed: 'Failed'};
+
+function songStatus(song) {
+  if (song.status === 'running') return song.message;
+  if (song.status === 'done') return `${song.stems} stems · ${song.seconds} s`;
+  if (song.status === 'waiting' && song.message === 'Cancelled') return 'Cancelled';
+  return STATUS_TEXT[song.status] ?? song.status;
+}
+
+function renderSongs(songs) {
+  const list = $('song-list');
+  for (const [id, row] of songRows) {
+    if (!songs.some(song => song.id === id)) { row.item.remove(); songRows.delete(id); results.delete(id); }
+  }
+  for (const song of songs) {
+    let row = songRows.get(song.id);
+    if (!row) {
+      const item = document.createElement('div');
+      item.className = 'song-item';
+      const main = document.createElement('button');
+      main.className = 'song-main';
+      const title = document.createElement('span');
+      title.className = 'song-title';
+      const status = document.createElement('small');
+      main.append(title, status);
+      main.addEventListener('click', () => { selectedId = song.id; follow = false; render(); });
+      const remove = document.createElement('button');
+      remove.className = 'song-remove';
+      remove.textContent = '×';
+      remove.addEventListener('click', () => command('remove', {id: song.id}));
+      const bar = document.createElement('i');
+      item.append(main, remove, bar);
+      list.append(item);
+      row = {item, main, title, status, remove, bar};
+      songRows.set(song.id, row);
+    }
+    row.item.dataset.id = song.id;
+    row.item.dataset.status = song.status;
+    row.item.classList.toggle('selected', song.id === selectedId);
+    row.main.setAttribute('aria-pressed', String(song.id === selectedId));
+    row.title.textContent = song.title;
+    row.main.title = song.title;
+    row.status.textContent = songStatus(song);
+    row.remove.hidden = song.status === 'running';
+    row.remove.setAttribute('aria-label', `Remove ${song.title}`);
+    row.bar.style.width = `${song.status === 'running' ? Math.round(song.progress * 100) : 0}%`;
+  }
+  $('song-sidebar').hidden = !songs.length;
+  $('song-count').textContent = songs.length;
+  $('clear-finished').hidden = !songs.some(song => song.status === 'done' || song.status === 'failed');
+}
+
+async function loadResult(id) {
+  if (loadingId === id) return;
+  loadingId = id;
+  try {
+    results.set(id, await api.result(id));
+  } catch (error) {
+    localError = error.message;
+  } finally {
+    loadingId = null;
+    render();
+  }
+}
+
 // ---------------------------------------------------------------- rendering
 let localError = '';
 function showError(message) { localError = message; render(); }
 
+function waitingCount() { return state.songs.filter(song => song.status === 'waiting').length; }
+
 function render() {
   if (!state) return;
+  const songs = state.songs;
   const busy = state.busy;
-  const locked = busy || requesting;
+
+  // Which song the stage shows.
+  if (follow && state.running != null) selectedId = state.running;
+  if (!songs.some(song => song.id === selectedId)) selectedId = songs.length ? songs[0].id : null;
+  const song = songs.find(entry => entry.id === selectedId) ?? null;
 
   $('device').hidden = !state.device;
   $('device').textContent = state.device ?? '';
+  renderSongs(songs);
 
   for (const chip of $('stem-chips').children) {
     chip.setAttribute('aria-pressed', String(selected.has(chip.dataset.stem)));
-    chip.disabled = locked;
+    chip.disabled = requesting;
   }
-  for (const id of ['source', 'choose-file', 'output', 'choose-folder', 'model', 'overlap', 'stems-all', 'stems-none']) {
-    $(id).disabled = locked;
-  }
-  $('separate').disabled = locked || !selected.size || !$('source').value.trim();
+  const typed = Boolean($('source').value.trim());
+  const ready = waitingCount() + (typed ? 1 : 0);
+  $('add-source').disabled = requesting || !typed;
+  $('choose-file').disabled = requesting;
+  $('separate').disabled = requesting || !selected.size || !ready;
+  $('separate-label').textContent = ready > 1 ? `Separate ${ready} songs` : 'Separate stems';
 
-  $('status').textContent = failures >= 3 ? 'The processing engine stopped. Restart the app.' : state.message;
+  let status = state.message;
+  if (failures >= 3) status = 'The processing engine stopped. Restart the app.';
+  else if (!busy && ready) status = ready === 1 ? '1 song ready. Press Separate stems.' : `${ready} songs ready. Press Separate ${ready} songs.`;
+  $('status').textContent = status;
   $('status-dot').classList.toggle('busy', busy);
   $('progress').hidden = !busy;
   $('progress').value = state.progress;
@@ -241,17 +325,30 @@ function render() {
   $('elapsed-time').hidden = !busy;
   if (busy) $('elapsed-time').textContent = clock(state.elapsed ?? 0);
 
-  const result = state.result;
-  if (result && result.job !== shownJob) buildMixer(result);
-  if (busy && playing) pause();
-  $('working').hidden = !busy;
-  $('mixer').hidden = busy || !result;
-  $('empty').hidden = busy || Boolean(result);
-  if (busy) $('working-title').textContent = state.message;
+  // Stage: empty, working, mixer, or a note about a song that has no result.
+  const done = song?.status === 'done';
+  const result = done ? results.get(song.id) : null;
+  if (done && !result) loadResult(song.id);
+  if (result && shownId !== result.id) buildMixer(result);
+  if (!result && playing) pause();
+  $('empty').hidden = Boolean(song);
+  $('working').hidden = song?.status !== 'running';
+  $('mixer').hidden = !result;
+  $('pending').hidden = !song || song.status === 'running' || done;
+  if (song?.status === 'running') $('working-title').textContent = song.message;
+  if (song?.status === 'waiting') {
+    $('pending-title').textContent = song.message === 'Cancelled' ? 'Cancelled' : 'Ready to separate';
+    $('pending-note').textContent = 'Pick the stems you want, then press Separate.';
+  } else if (song?.status === 'queued') {
+    $('pending-title').textContent = 'In the queue';
+    $('pending-note').textContent = 'It starts when the songs before it are finished.';
+  } else if (song?.status === 'failed') {
+    $('pending-title').textContent = 'This song could not be separated';
+    $('pending-note').textContent = song.error ?? '';
+  }
 
-  const error = state.error || localError;
-  $('error').hidden = !error;
-  $('error-text').textContent = error ?? '';
+  $('error').hidden = !localError;
+  $('error-text').textContent = localError;
 }
 
 async function command(action, values = {}) {
@@ -259,8 +356,10 @@ async function command(action, values = {}) {
   render();
   try {
     state = await api.command(action, values);
+    return true;
   } catch (error) {
     localError = error.message;
+    return false;
   } finally {
     requesting = false;
     render();
@@ -278,11 +377,32 @@ async function poll() {
   setTimeout(poll, state?.busy ? 350 : 900);
 }
 
-function separate() {
+async function addSources(sources) {
+  localError = '';
+  const before = new Set(state.songs.map(song => song.id));
+  if (!await command('add', {sources})) return false;
+  // Show the first newly added song unless one is being separated.
+  const added = state.songs.find(song => !before.has(song.id));
+  if (added && state.running == null) { selectedId = added.id; follow = false; render(); }
+  return true;
+}
+
+async function addTyped() {
+  const text = $('source').value.trim();
+  if (!text) return true;
+  if (!await addSources([text])) return false;
+  $('source').value = '';
+  render();
+  return true;
+}
+
+async function separate() {
   if ($('separate').disabled) return;
   localError = '';
-  command('separate', {source: $('source').value.trim(), stems: stemList(),
-    output: $('output').value.trim(), model: $('model').value, overlap: Number($('overlap').value)});
+  if (!await addTyped()) return;
+  follow = true;
+  await command('start', {stems: stemList(), output: $('output').value.trim(),
+    model: $('model').value, overlap: Number($('overlap').value)});
 }
 
 // ---------------------------------------------------------------- start
@@ -303,10 +423,11 @@ async function start() {
   }
 
   $('source').addEventListener('input', render);
-  $('source').addEventListener('keydown', event => { if (event.key === 'Enter') separate(); });
+  $('source').addEventListener('keydown', event => { if (event.key === 'Enter') addTyped(); });
+  $('add-source').addEventListener('click', addTyped);
   $('choose-file').addEventListener('click', async () => {
-    const path = await api.chooseFile();
-    if (path) { $('source').value = path; render(); }
+    const paths = await api.chooseFiles();
+    if (paths.length) addSources(paths);
   });
   $('choose-folder').addEventListener('click', async () => {
     const path = await api.chooseFolder($('output').value.trim());
@@ -317,11 +438,9 @@ async function start() {
   $('stems-none').addEventListener('click', () => { selected.clear(); savePreferences(); render(); });
   $('separate').addEventListener('click', separate);
   $('cancel').addEventListener('click', () => command('cancel'));
-  $('open-folder').addEventListener('click', () => command('open-folder'));
-  $('dismiss-error').addEventListener('click', () => {
-    localError = '';
-    if (state.error) command('dismiss-error'); else render();
-  });
+  $('clear-finished').addEventListener('click', () => command('clear-finished'));
+  $('open-folder').addEventListener('click', () => command('open-folder', {id: shownId}));
+  $('dismiss-error').addEventListener('click', () => { localError = ''; render(); });
 
   $('play').addEventListener('click', () => { if (playing) pause(); else play(); });
   $('seek').addEventListener('pointerdown', () => { seeking = true; });
@@ -337,9 +456,8 @@ async function start() {
     event.preventDefault();
     dragDepth = 0;
     $('drop-hint').hidden = true;
-    const file = event.dataTransfer?.files?.[0];
-    const path = file ? api.pathForFile(file) : '';
-    if (path && !state.busy) { $('source').value = path; render(); }
+    const paths = [...(event.dataTransfer?.files ?? [])].map(file => api.pathForFile(file)).filter(Boolean);
+    if (paths.length) addSources(paths);
   });
 
   render();

@@ -1,8 +1,8 @@
-// Desktop smoke test: launches the Electron app with an isolated profile, separates one
-// clip and checks the mixer. Screenshots go to diagnostics/.
+// Desktop smoke test: launches the Electron app with an isolated profile, queues songs,
+// separates them and checks the mixer. Screenshots go to diagnostics/.
 //
-//   npm run test:desktop                              (synthetic 20 s clip)
-//   set UT_STEMS_TEST_SOURCE=<file or YouTube link>   (a real song instead)
+//   npm run test:desktop                              (two synthetic 20 s clips, queued)
+//   set UT_STEMS_TEST_SOURCE=<file or YouTube link>   (one real song instead)
 //   set UT_STEMS_TEST_STEMS=vocals,bass,drums,guitars (stems to select, default all)
 const {_electron: electron} = require('playwright');
 const {spawnSync} = require('node:child_process');
@@ -17,14 +17,16 @@ const assert = require('node:assert/strict');
   const tag = process.env.UT_STEMS_TEST_TAG || 'desktop';
   fs.mkdirSync(output, {recursive: true});
 
-  let source = process.env.UT_STEMS_TEST_SOURCE;
-  if (!source) {
-    source = path.join(diagnostics, 'test_clip.mp3');
+  function makeClip(name, frequency) {
+    const target = path.join(diagnostics, name);
     const made = spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i',
-      'sine=frequency=220:duration=20', '-f', 'lavfi', '-i', 'anoisesrc=d=20:c=pink:a=0.2',
-      '-filter_complex', 'amix=inputs=2', '-ac', '2', '-ar', '44100', '-b:a', '192k', source]);
+      `sine=frequency=${frequency}:duration=20`, '-f', 'lavfi', '-i', 'anoisesrc=d=20:c=pink:a=0.2',
+      '-filter_complex', 'amix=inputs=2', '-ac', '2', '-ar', '44100', '-b:a', '192k', target]);
     assert.equal(made.status, 0, `ffmpeg could not create the test clip: ${made.stderr}`);
+    return target;
   }
+  const sources = process.env.UT_STEMS_TEST_SOURCE ? [process.env.UT_STEMS_TEST_SOURCE]
+    : [makeClip('test_clip.mp3', 220), makeClip('second_clip.mp3', 110)];
   const wanted = (process.env.UT_STEMS_TEST_STEMS || 'vocals,bass,drums,guitars,piano,others').split(',');
 
   const profile = path.join(diagnostics, 'profile');
@@ -35,13 +37,33 @@ const assert = require('node:assert/strict');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const screenshot = name => page.screenshot({path: path.join(diagnostics, `${tag}-${name}.png`)});
+  const statuses = () => page.locator('.song-item').evaluateAll(nodes => nodes.map(node => node.dataset.status));
   try {
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'));
     await page.waitForFunction(() => document.querySelectorAll('#stem-chips .chip').length === 6);
-    assert.equal(await page.locator('#separate').isDisabled(), true, 'Separate is disabled without a source');
+    assert.equal(await page.locator('#separate').isDisabled(), true, 'Separate is disabled without a song');
+    assert.equal(await page.locator('#song-sidebar').isHidden(), true, 'The song list is hidden while empty');
     await screenshot('empty');
 
-    await page.locator('#source').fill(source);
+    // A missing file is refused and nothing is added.
+    await page.locator('#source').fill(path.join(diagnostics, 'no_such_file.mp3'));
+    await page.locator('#add-source').click();
+    await page.waitForFunction(() => !document.querySelector('#error').hidden);
+    assert.match(await page.locator('#error-text').textContent(), /File not found/);
+    await page.locator('#dismiss-error').click();
+    assert.equal(await page.locator('.song-item').count(), 0);
+
+    // Every source but the last goes in with Add; the last one stays typed in the box.
+    for (const source of sources.slice(0, -1)) {
+      await page.locator('#source').fill(source);
+      await page.locator('#add-source').click();
+      await page.waitForFunction(() => document.querySelector('#source').value === '');
+    }
+    await page.locator('#source').fill(sources.at(-1));
+    assert.deepEqual(await statuses(), sources.slice(0, -1).map(() => 'waiting'));
+    assert.equal(await page.locator('#separate-label').textContent(),
+      sources.length > 1 ? `Separate ${sources.length} songs` : 'Separate stems');
+
     await page.locator('#output').fill(output);
     await page.locator('#output').dispatchEvent('change');
     for (const chip of await page.locator('#stem-chips .chip').all()) {
@@ -56,20 +78,37 @@ const assert = require('node:assert/strict');
     const saved = JSON.parse(fs.readFileSync(path.join(profile, 'preferences.json'), 'utf8'));
     assert.deepEqual(saved.stems, wanted, 'The stem selection is saved');
     assert.equal(saved.output, output, 'The output folder is saved');
+
     await page.locator('#separate').click();
     await page.waitForFunction(() => !document.querySelector('#working').hidden, null, {timeout: 15000});
     await page.waitForFunction(() => /Separating|Downloading/.test(document.querySelector('#status').textContent), null, {timeout: 300000});
     await screenshot('working');
-    await page.waitForFunction(() => !document.querySelector('#mixer').hidden || !document.querySelector('#error').hidden, null, {timeout: 900000});
-    assert.equal(await page.locator('#error').isHidden(), true, `Error shown: ${await page.locator('#error-text').textContent()}`);
+    if (sources.length > 1) {
+      assert.ok((await statuses()).includes('queued'), 'The other songs wait in the queue');
+      assert.match(await page.locator('#status').textContent(), /more in the queue/);
+    }
+    await page.waitForFunction(count => {
+      const items = [...document.querySelectorAll('.song-item')];
+      return items.length === count && items.every(item => ['done', 'failed'].includes(item.dataset.status));
+    }, sources.length, {timeout: 900000});
+    assert.deepEqual(await statuses(), sources.map(() => 'done'),
+      `A song failed: ${await page.locator('#pending-note').textContent()}`);
 
+    // The stage followed the queue and now shows the last song.
+    await page.waitForFunction(() => !document.querySelector('#mixer').hidden);
+    const titles = await page.locator('.song-title').allTextContents();
+    assert.equal(await page.locator('#song').textContent(), titles.at(-1));
+    for (const title of titles) {
+      for (const stem of wanted) {
+        const file = path.join(output, `${title}_${stem}.mp3`);
+        assert.ok(fs.statSync(file).size > 10000, `${file} was written`);
+      }
+    }
+    // Picking another song in the list opens its stems.
+    await page.locator('.song-main').first().click();
+    await page.waitForFunction(title => document.querySelector('#song').textContent === title, titles[0]);
     const rows = await page.locator('#tracks .track').evaluateAll(nodes => nodes.map(node => node.dataset.stem));
     assert.deepEqual(rows, wanted, 'The mixer shows the selected stems in order');
-    const song = await page.locator('#song').textContent();
-    for (const stem of wanted) {
-      const file = path.join(output, `${song}_${stem}.mp3`);
-      assert.ok(fs.statSync(file).size > 10000, `${file} was written`);
-    }
     await page.waitForTimeout(600);
     await screenshot('mixer');
 
@@ -87,9 +126,20 @@ const assert = require('node:assert/strict');
     await page.locator('#play').click();
 
     const levels = await page.locator('#tracks .track').evaluateAll(nodes => nodes.map(node => `${node.dataset.stem}: ${node.querySelector('small').textContent}`));
-    console.log(`song: ${song}`);
+    console.log(`songs: ${titles.join(' | ')}`);
     console.log(`meta: ${await page.locator('#meta').textContent()}`);
     console.log(levels.join('\n'));
+
+    // Removing and clearing songs.
+    if (sources.length > 1) {
+      await page.locator('.song-remove').last().click();
+      await page.waitForFunction(count => document.querySelectorAll('.song-item').length === count, sources.length - 1);
+    }
+    await page.locator('#clear-finished').click();
+    await page.waitForFunction(() => document.querySelectorAll('.song-item').length === 0);
+    assert.equal(await page.locator('#empty').isHidden(), false, 'The empty state returns when the list is cleared');
+    assert.equal(await page.locator('#mixer').isHidden(), true);
+
     assert.deepEqual(errors, [], 'No page errors');
     console.log('desktop test passed');
   } catch (error) {

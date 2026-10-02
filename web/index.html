@@ -18,11 +18,19 @@
   <main>
     <section class="workspace-layout" aria-label="Stem separation workspace">
       <div class="stage-area">
+        <aside id="song-sidebar" class="song-sidebar" hidden>
+          <div class="section-heading"><h2>Songs <span id="song-count">0</span></h2><button id="clear-finished" class="text-button" hidden>Clear finished</button></div>
+          <div id="song-list" class="song-list" aria-label="Songs"></div>
+        </aside>
         <div id="stage" class="stage">
           <div id="empty" class="empty-state">
             <div class="stem-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <h2>Load a song</h2>
-            <p>Paste a YouTube link or choose an audio file.<br>Then pick the stems you want and separate.</p>
+            <p>Paste a YouTube link or choose audio files.<br>Add as many songs as you like, pick the stems you want and separate.</p>
+          </div>
+          <div id="pending" class="empty-state" hidden>
+            <h2 id="pending-title"></h2>
+            <p id="pending-note"></p>
           </div>
           <div id="working" class="empty-state" role="status" aria-live="polite" hidden>
             <div class="loading-spinner" aria-hidden="true"></div>
@@ -50,9 +58,9 @@
         <section class="control-section">
           <div class="section-heading"><h2>Source</h2><span class="step-dot">1</span></div>
           <label class="sr-only" for="source">YouTube link or audio file path</label>
-          <input id="source" type="text" placeholder="Paste a YouTube link…" autocomplete="off" spellcheck="false">
-          <button id="choose-file" class="full">Choose file</button>
-          <p class="help">YouTube · MP3 · WAV · FLAC · M4A. You can also drop a file on the window.</p>
+          <div class="button-row"><input id="source" type="text" placeholder="Paste a YouTube link…" autocomplete="off" spellcheck="false"><button id="add-source" class="fixed">Add</button></div>
+          <button id="choose-file" class="full">Choose files</button>
+          <p class="help">YouTube · MP3 · WAV · FLAC · M4A. You can also drop files on the window. Add several songs to separate them one after another.</p>
         </section>
         <section class="control-section">
           <div class="section-heading"><h2>Stems</h2><span class="step-dot">2</span></div>
@@ -80,7 +88,7 @@
           </details>
         </section>
         </div>
-        <div class="sidebar-footer"><button id="separate" class="primary full">Separate stems <span aria-hidden="true">→</span></button></div>
+        <div class="sidebar-footer"><button id="separate" class="primary full"><span id="separate-label">Separate stems</span><span class="arrow" aria-hidden="true">→</span></button></div>
       </aside>
     </section>
   </main>
@@ -92,6 +100,6 @@
     <span class="local-label">RUNS ON THIS PC</span>
   </footer>
   <div id="error" class="error-toast" role="alert" hidden><span id="error-text"></span><button id="dismiss-error" aria-label="Dismiss error">×</button></div>
-  <div id="drop-hint" class="drop-hint" hidden>Drop the audio file to load it</div>
+  <div id="drop-hint" class="drop-hint" hidden>Drop audio files to add them</div>
 </body>
 </html>

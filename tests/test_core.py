@@ -105,6 +105,17 @@ def test_cli_reports_missing_file(capsys):
     assert "not found" in capsys.readouterr().err
 
 
+def test_cli_continues_after_a_bad_song(tmp_path, capsys):
+    bad = tmp_path / "bad.mp3"
+    bad.write_text("not audio")
+    worse = tmp_path / "worse.mp3"
+    worse.write_text("not audio either")
+    assert cli_main([str(bad), str(worse), "-o", str(tmp_path / "out")]) == 1
+    captured = capsys.readouterr()
+    assert "[1/2]" in captured.out and "[2/2]" in captured.out
+    assert captured.err.count("could not decode") == 2
+
+
 def test_cli_rejects_unknown_stem():
     with pytest.raises(SystemExit) as error:
         cli_main(["song.mp3", "--stems", "vocals,kazoo"])

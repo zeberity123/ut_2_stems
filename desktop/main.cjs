@@ -72,11 +72,11 @@ async function start() {
     try { fs.writeFileSync(temporary, JSON.stringify(next), 'utf8'); fs.renameSync(temporary, preferencesPath); preferences = next; }
     finally { fs.rmSync(temporary, {force: true}); }
   });
-  ipcMain.handle('choose-file', async event => {
+  ipcMain.handle('choose-files', async event => {
     checkCaller(event);
-    const result = await dialog.showOpenDialog(window, {properties: ['openFile'],
+    const result = await dialog.showOpenDialog(window, {properties: ['openFile', 'multiSelections'],
       filters: [{name: 'Audio', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus', 'wma']}, {name: 'All files', extensions: ['*']}]});
-    return result.canceled ? null : result.filePaths[0];
+    return result.canceled ? [] : result.filePaths;
   });
   ipcMain.handle('choose-folder', async (event, current) => {
     checkCaller(event);

@@ -1,4 +1,4 @@
-"""Command line: ut-stems song.mp3  ->  <out>/<songname>_<instrument>.mp3 for each stem."""
+"""Command line: ut-stems song.mp3 [more songs]  ->  <out>/<songname>_<instrument>.mp3 per stem."""
 
 from __future__ import annotations
 
@@ -23,7 +23,8 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="ut-stems",
         description="Split a song into MP3 stems: " + ", ".join(STEMS) + ".")
-    ap.add_argument("input", help="audio file (MP3 or anything ffmpeg reads) or a YouTube link")
+    ap.add_argument("inputs", nargs="+", metavar="input",
+                    help="audio files (MP3 or anything ffmpeg reads) or YouTube links, separated in order")
     ap.add_argument("-o", "--out", type=Path, default=Path("output"),
                     help="folder for the stems (default: ./output)")
     ap.add_argument("--stems", type=_stem_list, default=list(STEMS), metavar="LIST",
@@ -49,30 +50,37 @@ def main(argv: list[str] | None = None) -> int:
     from .pipeline import run
     from .youtube import is_url
 
-    if not is_url(args.input) and not Path(args.input).is_file():
-        print(f"error: input file not found: {args.input}", file=sys.stderr)
+    missing = [source for source in args.inputs if not is_url(source) and not Path(source).is_file()]
+    if missing:
+        print("error: input file not found: " + ", ".join(missing), file=sys.stderr)
         return 2
 
-    last = ""
+    failed = 0
+    for number, source in enumerate(args.inputs, 1):
+        if len(args.inputs) > 1:
+            print(f"[{number}/{len(args.inputs)}] {source}")
+        last = ""
 
-    def report(message: str, fraction: float) -> None:
-        nonlocal last
-        # Percentages change constantly; print each stage once.
-        stage = message.split("…")[0]
-        if stage != last:
-            last = stage
-            print(stage + "…", flush=True)
+        def report(message: str, fraction: float) -> None:
+            nonlocal last
+            # Percentages change constantly; print each stage once.
+            stage = message.split("…")[0]
+            if stage != last:
+                last = stage
+                print(stage + "…", flush=True)
 
-    try:
-        result = run(args.input, args.out, stems=args.stems, model=args.model,
-                     overlap=args.overlap, bitrate=args.bitrate, device=args.device, report=report)
-    except (AudioError, RuntimeError, ValueError, OSError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
+        try:
+            result = run(source, args.out, stems=args.stems, model=args.model, overlap=args.overlap,
+                         bitrate=args.bitrate, device=args.device, report=report)
+        except (AudioError, RuntimeError, ValueError, OSError) as e:
+            # One bad song does not stop the rest of the list.
+            print(f"error: {e}", file=sys.stderr)
+            failed += 1
+            continue
 
-    print(f"{result.song}: {result.duration:.1f} s, model={result.model}")
-    for stem in result.stems:
-        note = "  (silent)" if stem.level_db < -60 else ""
-        print(f"  {stem.path}{note}")
-    print(f"done in {result.seconds:.1f} s")
-    return 0
+        print(f"{result.song}: {result.duration:.1f} s, model={result.model}")
+        for stem in result.stems:
+            note = "  (silent)" if stem.level_db < -60 else ""
+            print(f"  {stem.path}{note}")
+        print(f"done in {result.seconds:.1f} s")
+    return 1 if failed else 0

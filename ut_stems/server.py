@@ -1,7 +1,7 @@
 """Local web server behind the desktop app.
 
 Serves the interface in ``web/`` and a small JSON API, bound to 127.0.0.1 and guarded
-by a session token. One separation job runs at a time on a worker thread.
+by a session token. Songs wait in a list and are separated one at a time on a worker thread.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import secrets
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -23,7 +24,26 @@ from . import DEFAULT_MODEL, MODEL_NAMES, STEMS, Cancelled, __version__
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
-IDLE_MESSAGE = "Paste a YouTube link or choose an audio file."
+IDLE_MESSAGE = "Paste a YouTube link or choose audio files."
+
+
+@dataclass
+class Song:
+    """One entry in the song list.
+
+    status: waiting (added, not started) -> queued -> running -> done or failed.
+    Cancelling puts unfinished songs back to waiting.
+    """
+    id: int
+    source: str
+    title: str
+    status: str = "waiting"
+    settings: dict | None = None
+    message: str = ""
+    progress: float = 0.0
+    started: float = 0.0
+    error: str | None = None
+    result: object | None = None  # pipeline.Result once done
 
 
 class Workspace:
@@ -31,13 +51,9 @@ class Workspace:
         self.lock = threading.Lock()
         self.cancel = threading.Event()
         self.default_output = Path(output or os.environ.get("UT_STEMS_OUTPUT") or ROOT / "output")
-        self.busy = False
-        self.message = IDLE_MESSAGE
-        self.progress = 0.0
-        self.started = 0.0
-        self.error = None
-        self.result = None  # pipeline.Result of the last finished job
-        self.job = 0
+        self.songs: list[Song] = []
+        self.next_id = 1
+        self.busy = False  # the worker thread is alive
         self.device = None
         threading.Thread(target=self._warm_up, daemon=True).start()
 
@@ -49,99 +65,176 @@ class Workspace:
                 device = torch.cuda.get_device_name(0).replace("NVIDIA GeForce ", "")
             else:
                 device = "CPU (slow)"
-        except Exception as e:  # shown in the status bar instead of crashing the server
+        except Exception as e:  # shown in the header instead of crashing the server
             device = f"unavailable: {e}"
         with self.lock:
             self.device = device
 
+    # ------------------------------------------------------------ state
     def state(self) -> dict:
         with self.lock:
-            result = None
-            if self.result:
-                r = self.result
-                result = {
-                    "job": self.job, "song": r.song, "folder": str(r.folder),
-                    "duration": round(r.duration, 1), "seconds": round(r.seconds, 1),
-                    "model": r.model,
-                    "stems": [{"name": s.name, "file": s.path.name, "level": s.level_db,
-                               "silent": s.level_db < -60, "peaks": s.peaks} for s in r.stems],
-                }
+            running = next((song for song in self.songs if song.status == "running"), None)
+            queued = sum(song.status == "queued" for song in self.songs)
+            if running:
+                message = running.message + (f" · {queued} more in the queue" if queued else "")
+            else:
+                message = IDLE_MESSAGE
             return {
-                "version": __version__, "busy": self.busy, "message": self.message,
-                "progress": round(self.progress, 4), "error": self.error,
-                "elapsed": round(time.time() - self.started, 1) if self.busy else None,
+                "version": __version__, "busy": self.busy, "message": message,
+                "progress": round(running.progress, 4) if running else 0,
+                "elapsed": round(time.time() - running.started, 1) if running else None,
+                "running": running.id if running else None,
                 "device": self.device, "stems": STEMS, "models": MODEL_NAMES,
                 "defaultModel": DEFAULT_MODEL, "defaultOutput": str(self.default_output),
-                "result": result,
+                "songs": [{
+                    "id": song.id, "title": song.title, "status": song.status,
+                    "message": song.message, "progress": round(song.progress, 4), "error": song.error,
+                    "stems": len(song.result.stems) if song.result else None,
+                    "seconds": round(song.result.seconds) if song.result else None,
+                } for song in self.songs],
             }
 
-    def report(self, message: str, fraction: float) -> None:
+    def result(self, song_id: str) -> dict | None:
+        """The finished result of one song, including the waveform outlines."""
         with self.lock:
-            self.message, self.progress = message, fraction
+            song = self._find(song_id)
+            if song is None or song.result is None:
+                return None
+            r = song.result
+            return {
+                "id": song.id, "song": r.song, "folder": str(r.folder),
+                "duration": round(r.duration, 1), "seconds": round(r.seconds, 1), "model": r.model,
+                "stems": [{"name": s.name, "file": s.path.name, "level": s.level_db,
+                           "silent": s.level_db < -60, "peaks": s.peaks} for s in r.stems],
+            }
 
+    def stem_path(self, song_id: str, name: str) -> Path | None:
+        with self.lock:
+            song = self._find(song_id)
+            if song is None or song.result is None:
+                return None
+            return next((s.path for s in song.result.stems if s.name == name), None)
+
+    def _find(self, song_id) -> Song | None:
+        return next((song for song in self.songs if str(song.id) == str(song_id)), None)
+
+    # ------------------------------------------------------------ commands
     def command(self, action: str, data: dict) -> dict:
-        if action == "separate":
+        if action == "add":
+            self.add(data.get("sources"))
+        elif action == "start":
             self.start(data)
-        elif action == "cancel":
-            self.cancel.set()
-            self.report("Cancelling…", self.progress)
-        elif action == "dismiss-error":
+        elif action == "remove":
             with self.lock:
-                self.error = None
+                song = self._find(data.get("id"))
+                if song is not None and song.status == "running":
+                    raise ValueError("Cancel the song before removing it.")
+                if song is not None:
+                    self.songs.remove(song)
+        elif action == "clear-finished":
+            with self.lock:
+                self.songs = [song for song in self.songs if song.status not in ("done", "failed")]
+        elif action == "cancel":
+            with self.lock:
+                self.cancel.set()
+                for song in self.songs:
+                    if song.status == "queued":
+                        song.status, song.settings, song.message = "waiting", None, ""
+                    elif song.status == "running":
+                        song.message = "Cancelling…"
         elif action == "open-folder":
             with self.lock:
-                folder = self.result.folder if self.result else None
+                song = self._find(data.get("id"))
+                folder = song.result.folder if song is not None and song.result else None
             if folder is None or not folder.is_dir():
                 raise ValueError("There is no output folder to open yet.")
-            os.startfile(folder)  # the folder of the last result only, never a caller-supplied path
+            os.startfile(folder)  # the folder of a finished song only, never a caller-supplied path
         else:
             raise ValueError(f"Unknown action: {action}")
         return self.state()
 
+    def add(self, sources) -> None:
+        """Add songs to the list. They wait there until ``start``."""
+        from .youtube import is_url
+        if not isinstance(sources, list) or not all(isinstance(source, str) for source in sources):
+            raise ValueError("Sources must be a list of links or file paths.")
+        cleaned = [source.strip().strip('"') for source in sources]
+        cleaned = [source for source in cleaned if source]
+        if not cleaned:
+            raise ValueError("Paste a YouTube link or choose an audio file.")
+        missing = [source for source in cleaned
+                   if not is_url(source) and not Path(source).expanduser().is_file()]
+        if missing:
+            raise ValueError("File not found: " + ", ".join(missing))
+        with self.lock:
+            for source in cleaned:
+                title = source if is_url(source) else Path(source).stem
+                self.songs.append(Song(self.next_id, source, title))
+                self.next_id += 1
+
     def start(self, data: dict) -> None:
-        source = str(data.get("source") or "")
+        """Queue every waiting song with the given settings and make sure the worker runs."""
         stems = data.get("stems", list(STEMS))
-        output = Path(str(data.get("output") or self.default_output))
+        if not isinstance(stems, list) or not all(isinstance(s, str) for s in stems):
+            raise ValueError("Stems must be a list of names.")
+        if set(stems) - set(STEMS):
+            raise ValueError(f"Unknown stems: {sorted(set(stems) - set(STEMS))}")
+        if not stems:
+            raise ValueError("Select at least one stem.")
         model = data.get("model") or DEFAULT_MODEL
+        if model not in MODEL_NAMES:
+            raise ValueError(f"Unknown model: {model}")
         overlap = int(data.get("overlap") or 2)
         if overlap not in (2, 3, 4):
             raise ValueError("Overlap must be 2, 3 or 4.")
-        if not isinstance(stems, list) or not all(isinstance(s, str) for s in stems):
-            raise ValueError("Stems must be a list of names.")
+        settings = {"stems": stems, "model": model, "overlap": overlap,
+                    "out_dir": Path(str(data.get("output") or self.default_output))}
         with self.lock:
-            if self.busy:
-                raise ValueError("A song is already being separated.")
-            self.busy, self.error, self.progress = True, None, 0.0
-            self.message, self.started = "Starting…", time.time()
-            self.cancel.clear()
+            waiting = [song for song in self.songs if song.status == "waiting"]
+            if not waiting:
+                raise ValueError("Add a song first.")
+            for song in waiting:
+                song.status, song.settings = "queued", settings
+                song.message, song.progress, song.error = "In the queue", 0.0, None
+            if not self.busy:
+                self.busy = True
+                threading.Thread(target=self._work, daemon=True).start()
 
-        def work():
-            from .pipeline import run
-            try:
-                result = run(source, output, stems=stems, model=model, overlap=overlap,
-                             report=self.report, cancel=self.cancel)
+    def _work(self) -> None:
+        from .pipeline import run
+        while True:
+            with self.lock:
+                song = next((song for song in self.songs if song.status == "queued"), None)
+                if song is None:
+                    self.busy = False
+                    return
+                song.status, song.message, song.started = "running", "Starting…", time.time()
+                settings = song.settings
+                self.cancel.clear()
+
+            def report(message, fraction, song=song):
                 with self.lock:
-                    self.result, self.job = result, self.job + 1
-                    self.message = f"Done in {result.seconds:.0f} s · {len(result.stems)} stems"
-                    self.progress = 1.0
+                    if not self.cancel.is_set():
+                        song.message, song.progress = message, fraction
+
+            def on_song(name, song=song):
+                with self.lock:
+                    song.title = name
+
+            try:
+                result = run(song.source, report=report, cancel=self.cancel, on_song=on_song, **settings)
+                with self.lock:
+                    song.status, song.result, song.progress = "done", result, 1.0
+                    song.message = f"Done in {result.seconds:.0f} s · {len(result.stems)} stems"
             except Cancelled:
                 with self.lock:
-                    self.message, self.progress = "Cancelled.", 0.0
+                    song.status, song.settings = "waiting", None
+                    song.message, song.progress = "Cancelled", 0.0
             except Exception as e:
                 with self.lock:
-                    self.error = str(e) or type(e).__name__
-                    self.message, self.progress = "Something went wrong.", 0.0
-            finally:
-                with self.lock:
-                    self.busy = False
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def stem_path(self, job: str, name: str) -> Path | None:
-        with self.lock:
-            if not self.result or str(self.job) != job:
-                return None
-            return next((s.path for s in self.result.stems if s.name == name), None)
+                    song.status, song.progress = "failed", 0.0
+                    song.error = str(e) or type(e).__name__
+                    song.message = "Failed"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -208,11 +301,16 @@ class Handler(BaseHTTPRequestHandler):
         if url.path.startswith("/api/"):
             if not self.authorized(query):
                 return self.respond(403, {"error": "Invalid session."})
+            workspace = self.server.workspace
             if url.path == "/api/state":
-                return self.respond(200, self.server.workspace.state())
+                return self.respond(200, workspace.state())
+            if url.path == "/api/result":
+                result = workspace.result((query.get("id") or [""])[0])
+                if result is None:
+                    return self.respond(404, {"error": "That song has no result."})
+                return self.respond(200, result)
             if url.path == "/api/audio":
-                path = self.server.workspace.stem_path((query.get("job") or [""])[0],
-                                                       (query.get("stem") or [""])[0])
+                path = workspace.stem_path((query.get("id") or [""])[0], (query.get("stem") or [""])[0])
                 if path is None or not path.is_file():
                     return self.respond(404, {"error": "That stem is not available."})
                 return self.send_file(path, "audio/mpeg")

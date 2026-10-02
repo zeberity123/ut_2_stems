@@ -18,12 +18,13 @@ export class StemsAPI {
     return result;
   }
   state() { return this.request('state'); }
+  result(id) { return this.request(`result?${new URLSearchParams({id})}`); }
   command(action, values = {}) {
     return this.request('command', {method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({action, ...values})});
   }
-  audioUrl(job, stem) { return this.url('audio', {job, stem}); }
-  async chooseFile() { return this.desktop?.chooseFile() ?? null; }
+  audioUrl(id, stem) { return this.url('audio', {id, stem}); }
+  async chooseFiles() { return (await this.desktop?.chooseFiles()) ?? []; }
   async chooseFolder(current) { return this.desktop?.chooseFolder(current) ?? null; }
   pathForFile(file) { return this.desktop?.pathForFile(file) ?? ''; }
   async preferences() { return (await this.desktop?.getPreferences()) ?? {}; }

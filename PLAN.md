@@ -55,9 +55,15 @@ Runner for the fallback: `demucs` or `audio-separator`.
    - **YouTube input**: a link is downloaded as audio only and saved as `<title>.mp3` (320 kbps) next to the stems, using the yt-dlp settings from `zeberity123/ut_downloader`. Playlist parameters in the link are ignored.
    - **Stem selection**: choose any of the six stems in the app, or `--stems vocals,bass,drums,guitars` on the command line. `others` collects everything that is not in a selected stem; if `others` is not selected, that audio is not written.
    - **Separation loop**: `ut_stems/models.py` now runs its own chunked loop (progress and cancel for the app). Its raw output matches `bs_roformer.demix_track` to 1e-7 on the full sample song.
-   - **Tests**: `python -m pytest` (16 fast tests: audio, selection, input handling, server), `python -m pytest -m slow` (4 GPU tests on a short clip, including that the stems sum back to the song), `npm run test:desktop` (launches the app, separates a clip, checks the mixer and synchronised playback).
+   - **Tests**: `python -m pytest` (fast tests: audio, selection, input handling, server), `python -m pytest -m slow` (4 GPU tests on a short clip, including that the stems sum back to the song), `npm run test:desktop` (launches the app, separates a clip, checks the mixer and synchronised playback).
    - **Checked by hand through the app** with both YouTube links: `3J5uLk1DJV0` (all six stems, 62 s) and `CkvWJNt77mU` (all six, 74 s; and vocals/bass/drums/guitars only, 67 s). For `CkvWJNt77mU` the model puts piano at -37.6 dB (one short blip) and `others` at -19 dB.
-5. **Optional later** — batch/queue of several songs, a packaged installer, Korean/Japanese interface text, ensembling models for better guitar/piano.
+5. **Song queue** — done (chosen from the optional list).
+   - The app has a **Songs** list: add links or files one by one, pick several files, or drop several. Nothing runs until Separate is pressed; the songs then run one after another with the settings of that moment.
+   - A finished song can be opened and played while the next one runs. Cancel returns unfinished songs to Ready; a failed song does not stop the others.
+   - `ut-stems` accepts several inputs and continues past a bad one.
+   - Server state lists the songs without waveforms; a song's full result is fetched once when it is opened.
+   - Checked through the app: two queued clips (automated), a YouTube link and a local file queued with four stems, and Cancel during a run followed by a restart.
+6. **Optional later** — a packaged installer, Korean/Japanese interface text, ensembling models for better guitar/piano.
 
 ## Defaults assumed
 

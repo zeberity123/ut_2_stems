@@ -14,6 +14,7 @@ Everything runs on your own PC. It comes as a desktop app and as a command.
 - **Stems**: pick any of the six. `others` collects everything that is not in a selected stem, so
   with `others` selected the files always add up to the whole song. Without it, the rest is not written.
 - **Output**: `<songname>_<instrument>.mp3` at 320 kbps, in the folder you choose.
+- **Queue**: add several files or links and they are separated one after another.
 - **Mixer** (desktop app): waveform, solo, mute and volume per stem, with synchronised playback.
   A stem with nothing in it is marked *silent*.
 
@@ -58,11 +59,21 @@ The repository holds only code. Songs, separated stems and model files are never
 
 Double-click `run.bat`.
 
-1. Paste a YouTube link, choose a file, or drop a file on the window.
+1. Paste a YouTube link, choose files, or drop files on the window.
 2. Select the stems you want.
 3. Choose the output folder and press **Separate stems**.
 
 When it finishes, the stems open in the mixer and **Open folder** shows the files.
+
+To separate several songs, add them one by one with **Add** (or Enter), or pick several files at
+once. They appear in the **Songs** list on the left and nothing starts until you press
+**Separate**. Then:
+
+- the songs run one after another with the stems, folder and model set at that moment
+- you can open and play a finished song while the next one is running
+- songs added during a run wait until you press **Separate** again
+- **Cancel** stops the run and puts the unfinished songs back to *Ready*
+- a song that fails is marked *Failed* and the rest carry on
 
 ### Command line
 
@@ -71,6 +82,7 @@ The `ut-stems` command works from any folder.
 ```
 ut-stems "song.mp3"
 ut-stems "song.mp3" -o D:\stems
+ut-stems "first.mp3" "second.mp3" "https://youtu.be/CkvWJNt77mU"
 ut-stems "https://youtu.be/CkvWJNt77mU" --stems vocals,bass,drums,guitars
 ```
 
@@ -101,7 +113,7 @@ YouTube audio download follows [ut_downloader](https://github.com/zeberity123/ut
 ```
 python -m pytest             fast tests, no model needed
 python -m pytest -m slow     separation on a short clip, needs the GPU
-npm run test:desktop         launches the app, separates a clip, checks the mixer
+npm run test:desktop         launches the app, queues two clips, checks the list and the mixer
 ```
 
 ## Notes
