@@ -44,20 +44,28 @@ class _Quiet:
 
 def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = lambda f: None,
                  cancel: threading.Event | None = None, bitrate: str = "320k",
-                 name: str | None = None) -> tuple[Path, str]:
+                 name: str | None = None, use_title: bool = True,
+                 on_title: Callable[[str], None] | None = None) -> tuple[Path, str]:
     """Download one video's audio and save it as ``<dest_dir>/<title>.mp3``.
 
     Returns the MP3 path and the video title. Playlist parameters in the link are
     ignored; only the linked video is downloaded. ``name`` replaces the title in
-    the file name.
+    the file name; without one, ``use_title=False`` names the file after the video id.
+    ``on_title`` is called with the video title as soon as the download starts.
     """
     import yt_dlp
 
     dest_dir.mkdir(parents=True, exist_ok=True)
+    announced = False
 
     def hook(data):
+        nonlocal announced
         if cancel is not None and cancel.is_set():
             raise Cancelled()
+        title = (data.get("info_dict") or {}).get("title")
+        if on_title is not None and title and not announced:
+            announced = True
+            on_title(title)
         if data.get("status") == "downloading":
             total = data.get("total_bytes") or data.get("total_bytes_estimate") or 0
             if total:
@@ -115,7 +123,7 @@ def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = l
         raise RuntimeError("The YouTube download did not produce an audio file.")
 
     title = info.get("title") or info.get("id") or "audio"
-    target = dest_dir / f"{sanitize_filename(name or title)}.mp3"
+    target = dest_dir / f"{sanitize_filename(name or (title if use_title else info.get('id') or title))}.mp3"
     try:
         if cancel is not None and cancel.is_set():
             raise Cancelled()

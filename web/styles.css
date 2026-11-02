@@ -94,6 +94,7 @@ main { flex: 1; min-height: 0; display: flex; }
 .chip[aria-pressed=true] { background: #254340; border-color: var(--accent); color: #dcfffc; box-shadow: inset 0 0 0 1px var(--accent); }
 .chip[aria-pressed=true] i { opacity: 1; }
 .chip-actions { display: flex; gap: 4px; margin-top: 8px; }
+.chips.options .chip { --stem: var(--accent); }
 
 /* Advanced settings */
 #advanced > summary {

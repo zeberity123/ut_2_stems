@@ -155,3 +155,62 @@ def test_download_names_the_file_after_the_title(tmp_path, monkeypatch):
     assert (path.name, title) == ("Shine on Me.mp3", "Shine on Me")
     path, _ = youtube.download_mp3("https://youtu.be/suv0x6HfRhw", tmp_path, name="My: Song")
     assert path.name == "My_ Song.mp3"
+
+
+def fake_download(monkeypatch):
+    """Replace the YouTube download and the separation so ``run`` needs no network or model."""
+    from ut_stems import pipeline
+    calls = {}
+
+    def download(url, dest_dir, name=None, use_title=True, on_title=None, **_):
+        if on_title is not None:
+            on_title('Artist - "Song"')
+        calls["use_title"] = use_title
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        target = dest_dir / f"{sanitize_filename(name or ('Artist - Song' if use_title else 'abc123'))}.mp3"
+        target.write_bytes(b"mix")
+        return target, 'Artist - "Song"'
+
+    def separate(path, song, out_dir, wanted, *args):
+        target = out_dir / f"{song}_vocals.mp3"
+        target.write_bytes(b"vocals")
+        return [pipeline.StemFile("vocals", target, -3.0, [0.1])], 1.0
+
+    monkeypatch.setattr(pipeline, "download_mp3", download)
+    monkeypatch.setattr(pipeline, "_separate", separate)
+    return calls
+
+
+def test_youtube_song_takes_the_video_title_when_it_starts(tmp_path, monkeypatch):
+    calls = fake_download(monkeypatch)
+    names = []
+    result = run("https://youtu.be/abc123", tmp_path / "out", on_song=names.append)
+    assert names == ["Artist - _Song_", "Artist - Song"] and calls["use_title"] is True
+    assert result.song == "Artist - Song"
+    assert result.original == tmp_path / "out" / "Artist - Song.mp3" and result.original.is_file()
+
+    # a name given by the user wins over the title, which is then not announced
+    names.clear()
+    result = run("https://youtu.be/abc123", tmp_path / "out", on_song=names.append, name="Mine")
+    assert names == ["Mine"] and result.song == "Mine"
+
+
+def test_youtube_song_without_auto_title_uses_the_video_id(tmp_path, monkeypatch):
+    calls = fake_download(monkeypatch)
+    names = []
+    result = run("https://youtu.be/abc123", tmp_path / "out", on_song=names.append, auto_title=False)
+    assert names == ["abc123"] and calls["use_title"] is False and result.song == "abc123"
+
+
+def test_original_mp3_is_deleted_unless_kept(tmp_path, monkeypatch):
+    fake_download(monkeypatch)
+    out = tmp_path / "out"
+    result = run("https://youtu.be/abc123", out, keep_original=False)
+    assert result.original is None
+    assert sorted(path.name for path in out.iterdir()) == ["Artist - Song_vocals.mp3"]
+
+    # a local file is the user's own and is never deleted
+    local = tmp_path / "mine.mp3"
+    local.write_bytes(b"mix")
+    result = run(str(local), out, keep_original=False)
+    assert local.is_file() and result.original is None

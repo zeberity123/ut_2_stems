@@ -111,13 +111,22 @@ To separate several songs, add them one by one with **Add** (or Enter), or pick 
 once. They appear in the **Songs** list on the left and nothing starts until you press
 **Separate**. Then:
 
-- before a song is separated you can rename it: double-click it in the list or press **✎**, type
-  the name and press Enter (Esc cancels). The files are then written under that name.
+- to rename a song, double-click it in the list or press **✎**, type the name and press Enter
+  (Esc cancels). Before separation the files are then written under that name; after it, the
+  files already written are renamed (an existing file of that name is never overwritten).
+- a YouTube song you did not rename takes the video title as soon as it starts
 - the songs run one after another with the stems, folder and model set at that moment
 - you can open and play a finished song while the next one is running
 - songs added during a run wait until you press **Separate** again
 - **Cancel** stops the run and puts the unfinished songs back to *Ready*
 - a song that fails is marked *Failed* and the rest carry on
+
+Under **Advanced** → *Files* there are two toggles, both on by default:
+
+- **Auto title**: a YouTube song you did not rename is named after its video title. Off, it is
+  named after its video id (for example `suv0x6HfRhw_vocals.mp3`).
+- **Keep original MP3**: the downloaded song stays next to the stems as `<songname>.mp3`. Off, it
+  is deleted once the stems are written. Files you chose yourself are never deleted.
 
 ### Command line
 

@@ -35,7 +35,7 @@ class Song:
     id: int
     source: str
     title: str
-    name: str | None = None  # set by renaming; replaces the song name in the output files
+    name: str | None = None  # set by renaming before separation; replaces the song name in the files
     status: str = "waiting"
     settings: dict | None = None
     message: str = ""
@@ -177,7 +177,9 @@ class Workspace:
                 self.next_id += 1
 
     def rename(self, song_id, name) -> None:
-        """Give a song that has not been separated yet the name its files are written under."""
+        """Rename a song. Before separation this is the name its files are written under;
+        after it, the files that were written are renamed."""
+        from .pipeline import rename_result
         from .youtube import sanitize_filename
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Type a name for the song.")
@@ -185,9 +187,15 @@ class Workspace:
             song = self._find(song_id)
             if song is None:
                 return
-            if song.status not in ("waiting", "queued"):
-                raise ValueError("Only a song that has not been separated yet can be renamed.")
-            song.name = song.title = sanitize_filename(name)
+            if song.status in ("waiting", "queued"):
+                song.name = song.title = sanitize_filename(name)
+            elif song.status == "done" and song.result is not None:
+                rename_result(song.result, name)
+                song.name = song.title = song.result.song
+            elif song.status == "running":
+                raise ValueError("Wait until the song is separated, then rename it.")
+            else:
+                raise ValueError("A song that could not be separated cannot be renamed.")
 
     def start(self, data: dict) -> None:
         """Queue every waiting song with the given settings and make sure the worker runs."""
@@ -205,7 +213,9 @@ class Workspace:
         if overlap not in (2, 3, 4):
             raise ValueError("Overlap must be 2, 3 or 4.")
         settings = {"stems": stems, "model": model, "overlap": overlap,
-                    "out_dir": Path(str(data.get("output") or self.default_output))}
+                    "out_dir": Path(str(data.get("output") or self.default_output)),
+                    "auto_title": data.get("autoTitle", True) is not False,
+                    "keep_original": data.get("keepOriginal", True) is not False}
         with self.lock:
             waiting = [song for song in self.songs if song.status == "waiting"]
             if not waiting:
@@ -234,9 +244,9 @@ class Workspace:
                     if not self.cancel.is_set():
                         song.message, song.progress = message, fraction
 
-            def on_song(name, song=song):
+            def on_song(title, song=song):
                 with self.lock:
-                    song.title = name
+                    song.title = title
 
             try:
                 result = run(song.source, report=report, cancel=self.cancel, on_song=on_song,
@@ -300,18 +310,21 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(end - start + 1))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        remaining = end - start + 1
+        position, remaining = start, end - start + 1
         try:
-            with open(path, "rb") as f:
-                f.seek(start)
-                while remaining > 0:
-                    chunk = f.read(min(65536, remaining))
-                    if not chunk:
-                        break
-                    self.wfile.write(chunk)
-                    remaining -= len(chunk)
+            while remaining > 0:
+                # The file is only held open while reading, never while the player is slow to take
+                # the data, so that a finished song can still be renamed while it is loaded.
+                with open(path, "rb") as f:
+                    f.seek(position)
+                    chunk = f.read(min(262144, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                position += len(chunk)
+                remaining -= len(chunk)
         except (ConnectionError, OSError):
-            pass  # the player dropped the connection, e.g. on seek
+            pass  # the player dropped the connection, e.g. on seek, or the file was renamed
 
     def do_GET(self):
         url = urlsplit(self.path)

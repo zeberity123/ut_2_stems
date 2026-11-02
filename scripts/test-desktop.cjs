@@ -99,6 +99,16 @@ const assert = require('node:assert/strict');
     assert.deepEqual(saved.stems, wanted, 'The stem selection is saved');
     assert.equal(saved.output, output, 'The output folder is saved');
 
+    // The file options under Advanced are toggles like the stems, on by default, and remembered.
+    await page.locator('#advanced > summary').click();
+    assert.equal(await page.locator('#auto-title').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#keep-original').getAttribute('aria-pressed'), 'true');
+    await page.locator('#keep-original').click();
+    assert.equal(await page.locator('#keep-original').getAttribute('aria-pressed'), 'false');
+    await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.keepOriginal === false));
+    await screenshot('advanced');
+    await page.locator('#advanced > summary').click();
+
     await page.locator('#separate').click();
     await page.waitForFunction(() => !document.querySelector('#working').hidden, null, {timeout: 15000});
     await page.waitForFunction(() => /Separating|Downloading/.test(document.querySelector('#status').textContent), null, {timeout: 300000});
@@ -118,7 +128,10 @@ const assert = require('node:assert/strict');
     await page.waitForFunction(() => !document.querySelector('#mixer').hidden);
     const titles = await page.locator('.song-title').allTextContents();
     if (sources.length > 1) assert.equal(titles[0], 'renamed clip', 'The new name is kept');
-    assert.equal(await page.locator('.song-rename:visible').count(), 0, 'Finished songs cannot be renamed');
+    assert.equal(await page.locator('.song-rename:visible').count(), sources.length, 'Finished songs can be renamed');
+    if (!process.env.UT_STEMS_TEST_SOURCE) {
+      for (const source of sources) assert.ok(fs.existsSync(source), 'Your own files are never deleted');
+    }
     assert.equal(await page.locator('#song').textContent(), titles.at(-1));
     for (const title of titles) {
       for (const stem of wanted) {
@@ -145,6 +158,25 @@ const assert = require('node:assert/strict');
     await page.waitForTimeout(400);
     assert.equal(await page.locator('.track.dimmed').count(), wanted.length - 1, 'Solo dims the other stems');
     await screenshot('playing');
+
+    // Renaming a finished song renames its files, and the stems keep playing.
+    const renamed = 'renamed after';
+    // Files left by an earlier run would block the rename (it never overwrites).
+    for (const name of [`${renamed}.mp3`, ...wanted.map(stem => `${renamed}_${stem}.mp3`)]) {
+      fs.rmSync(path.join(output, name), {force: true});
+    }
+    await page.locator('.song-main').first().dblclick();
+    await page.locator('.song-rename-input').fill(renamed);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(title => document.querySelector('#song').textContent === title, renamed);
+    assert.equal(await page.locator('.song-title').first().textContent(), renamed);
+    for (const stem of wanted) {
+      assert.ok(fs.existsSync(path.join(output, `${renamed}_${stem}.mp3`)), `${stem} was renamed`);
+      assert.ok(!fs.existsSync(path.join(output, `${titles[0]}_${stem}.mp3`)), `the old ${stem} file is gone`);
+    }
+    const before = Number(await page.locator('#seek').inputValue());
+    await page.waitForFunction(time => Number(document.querySelector('#seek').value) > time + 1, before, {timeout: 20000});
+    titles[0] = renamed;
     await page.locator('#play').click();
 
     const levels = await page.locator('#tracks .track').evaluateAll(nodes => nodes.map(node => `${node.dataset.stem}: ${node.querySelector('small').textContent}`));

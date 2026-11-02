@@ -148,28 +148,101 @@ def test_rename(server, tmp_path, monkeypatch):
     assert command(server, "rename", id=first.id)[0] == 400
     assert command(server, "rename", id=99, name="nobody")[0] == 200
 
-    # only before separation: a running or finished song keeps its name
-    second.status, third.status = "running", "done"
-    for song in (second, third):
-        status, body = command(server, "rename", id=song.id, name="late")
-        assert status == 400 and "not been separated" in body["error"]
-    second.status, third.status = "failed", "failed"
+    # a song being separated or one that failed keeps its name
+    second.status, third.status = "running", "failed"
+    status, body = command(server, "rename", id=second.id, name="late")
+    assert status == 400 and "Wait until" in body["error"]
+    status, body = command(server, "rename", id=third.id, name="late")
+    assert status == 400 and "could not be separated" in body["error"]
+    second.status = "failed"
 
-    # the new name reaches the pipeline, the other songs go without one
-    names = {}
+    # the new name and the file options reach the pipeline, the other songs go without a name
+    names, options = {}, {}
 
     def fake_run(source, name=None, **settings):
         names[source] = name
+        options[source] = (settings["auto_title"], settings["keep_original"])
         raise RuntimeError("stop here")
 
     monkeypatch.setattr("ut_stems.pipeline.run", fake_run)
     command(server, "add", sources=[str(audio_file(tmp_path, "d.mp3"))])
-    command(server, "start", stems=["vocals"])
+    command(server, "start", stems=["vocals"], keepOriginal=False)
     for _ in range(200):
         if not json.loads(call(server, "/api/state")[1])["busy"]:
             break
         time.sleep(0.05)
     assert names == {first.source: "AC_DC_ _Live_", str(tmp_path / "d.mp3"): None}
+    assert set(options.values()) == {(True, False)}  # auto title is on unless switched off
+
+
+def finished_song(tmp_path, workspace, song_id=7, original=True):
+    """A finished YouTube song with two stems, and the downloaded song MP3 if ``original``."""
+    folder = tmp_path / "out"
+    folder.mkdir(exist_ok=True)
+    stems = []
+    for name in ("vocals", "bass"):
+        path = folder / f"song_{name}.mp3"
+        path.write_bytes(name.encode())
+        stems.append(StemFile(name, path, -6.0, [0.5]))
+    mix = folder / "song.mp3"
+    if original:
+        mix.write_bytes(b"mix")
+    result = Result(song="song", source=mix, folder=folder, duration=1.0, seconds=1.0,
+                    model="bs_roformer_sw", stems=stems, original=mix if original else None)
+    workspace.songs.append(Song(song_id, "https://youtu.be/x", "song", status="done", result=result))
+    return folder
+
+
+def test_renaming_a_finished_song_renames_its_files(server, tmp_path):
+    folder = finished_song(tmp_path, server.workspace)
+    status, state = command(server, "rename", id=7, name="New: name")
+    assert status == 200 and state["songs"][0]["title"] == "New_ name"
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "New_ name.mp3", "New_ name_bass.mp3", "New_ name_vocals.mp3"]
+    result = json.loads(call(server, "/api/result?id=7")[1])
+    assert result["song"] == "New_ name"
+    assert [stem["file"] for stem in result["stems"]] == ["New_ name_vocals.mp3", "New_ name_bass.mp3"]
+    status, body, _ = call(server, "/api/audio?id=7&stem=bass")
+    assert status == 200 and body == b"bass"
+
+    # a change of case only works too (the same file on Windows)
+    assert command(server, "rename", id=7, name="new: NAME")[0] == 200
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "new_ NAME.mp3", "new_ NAME_bass.mp3", "new_ NAME_vocals.mp3"]
+
+
+def test_renaming_a_finished_song_never_overwrites(server, tmp_path):
+    folder = finished_song(tmp_path, server.workspace)
+    (folder / "taken_bass.mp3").write_bytes(b"other")
+    status, body = command(server, "rename", id=7, name="taken")
+    assert status == 400 and "taken_bass.mp3 already exists" in body["error"]
+    assert sorted(path.name for path in folder.iterdir()) == [
+        "song.mp3", "song_bass.mp3", "song_vocals.mp3", "taken_bass.mp3"]
+    assert (folder / "taken_bass.mp3").read_bytes() == b"other"
+    assert json.loads(call(server, "/api/state")[1])["songs"][0]["title"] == "song"
+
+
+def test_renaming_a_finished_song_rolls_back_on_failure(server, tmp_path, monkeypatch):
+    import os
+    folder = finished_song(tmp_path, server.workspace)
+    real_replace = os.replace
+
+    def locked(source, target):
+        if str(source).endswith("song_bass.mp3"):
+            raise PermissionError(13, "The file is in use")
+        return real_replace(source, target)
+
+    monkeypatch.setattr("ut_stems.pipeline.os.replace", locked)
+    monkeypatch.setattr("ut_stems.pipeline.time.sleep", lambda seconds: None)
+    status, body = command(server, "rename", id=7, name="new")
+    assert status == 400 and "Could not rename song_bass.mp3" in body["error"]
+    assert sorted(path.name for path in folder.iterdir()) == ["song.mp3", "song_bass.mp3", "song_vocals.mp3"]
+
+
+def test_renaming_without_the_original(server, tmp_path):
+    folder = finished_song(tmp_path, server.workspace, original=False)
+    assert command(server, "rename", id=7, name="other")[0] == 200
+    assert sorted(path.name for path in folder.iterdir()) == ["other_bass.mp3", "other_vocals.mp3"]
 
 
 def test_results_and_audio_streaming(server, tmp_path):

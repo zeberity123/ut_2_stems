@@ -25,13 +25,15 @@ const selected = new Set();  // stems to write
 const tracks = new Map();    // stem -> {audio, row, canvas, peaks, solo, mute, volume}
 const results = new Map();   // song id -> finished result with waveforms
 const songRows = new Map();  // song id -> list row elements
+const options = {autoTitle: true, keepOriginal: true};  // the toggles under Advanced
+const OPTION_BUTTONS = {autoTitle: 'auto-title', keepOriginal: 'keep-original'};
 
 // ---------------------------------------------------------------- settings
 function stemList() { return (state?.stems ?? []).filter(stem => selected.has(stem)); }
 
 function savePreferences() {
   api.savePreferences({stems: stemList(), output: $('output').value.trim(),
-    model: $('model').value, overlap: $('overlap').value});
+    model: $('model').value, overlap: $('overlap').value, ...options});
 }
 
 function buildChips(stems) {
@@ -224,7 +226,8 @@ function playbackLoop() {
 
 // ---------------------------------------------------------------- song list
 const STATUS_TEXT = {waiting: 'Ready', queued: 'In the queue', failed: 'Failed'};
-const RENAMABLE = ['waiting', 'queued'];  // a song can be renamed until it is separated
+// A song can be renamed before it is separated, and afterwards, which renames its files.
+const RENAMABLE = ['waiting', 'queued', 'done'];
 
 function songStatus(song) {
   if (song.status === 'running') return song.message;
@@ -249,7 +252,7 @@ function startRename(id) {
     row.endRename = null;
     const name = editor.value.trim();
     editor.remove();
-    if (save && name && name !== row.title.textContent) command('rename', {id, name});
+    if (save && name && name !== row.title.textContent) rename(id, name);
   };
   editor.addEventListener('keydown', event => {
     if (event.key === 'Enter') row.endRename?.(true);
@@ -259,6 +262,27 @@ function startRename(id) {
   row.item.append(editor);
   editor.focus();
   editor.select();
+}
+
+async function rename(id, name) {
+  const done = state.songs.find(song => song.id === id)?.status === 'done';
+  if (!await command('rename', {id, name}) || !done) return;
+  // The files have new names. The players keep going: they ask for a stem by song and instrument.
+  try {
+    const result = await api.result(id);
+    results.set(id, result);
+    if (shownId === id) {
+      $('song').textContent = result.song;
+      for (const stem of result.stems) {
+        const wave = tracks.get(stem.name)?.row.querySelector('.wave');
+        if (wave) wave.title = stem.file;
+      }
+    }
+  } catch {
+    results.delete(id);
+    if (shownId === id) shownId = null;
+  }
+  render();
 }
 
 function renderSongs(songs) {
@@ -282,7 +306,6 @@ function renderSongs(songs) {
       const rename = document.createElement('button');
       rename.className = 'song-rename';
       rename.textContent = '✎';
-      rename.title = 'Rename (or double-click the song)';
       rename.addEventListener('click', () => startRename(song.id));
       const remove = document.createElement('button');
       remove.className = 'song-remove';
@@ -304,6 +327,8 @@ function renderSongs(songs) {
     const renamable = RENAMABLE.includes(song.status);
     if (!renamable) row.endRename?.(false);
     row.rename.hidden = !renamable;
+    row.rename.title = song.status === 'done' ? 'Rename the song and its files (or double-click the song)'
+      : 'Rename (or double-click the song)';
     row.rename.setAttribute('aria-label', `Rename ${song.title}`);
     row.remove.hidden = song.status === 'running';
     row.remove.setAttribute('aria-label', `Remove ${song.title}`);
@@ -356,6 +381,7 @@ function render() {
     chip.setAttribute('aria-pressed', String(selected.has(chip.dataset.stem)));
     chip.disabled = requesting;
   }
+  for (const [option, id] of Object.entries(OPTION_BUTTONS)) $(id).setAttribute('aria-pressed', String(options[option]));
   const typed = Boolean($('source').value.trim());
   const ready = waitingCount() + (typed ? 1 : 0);
   $('add-source').disabled = requesting || !typed;
@@ -451,7 +477,7 @@ async function separate() {
   if (!await addTyped()) return;
   follow = true;
   await command('start', {stems: stemList(), output: $('output').value.trim(),
-    model: $('model').value, overlap: Number($('overlap').value)});
+    model: $('model').value, overlap: Number($('overlap').value), ...options});
 }
 
 // ---------------------------------------------------------------- start
@@ -464,6 +490,14 @@ async function start() {
   $('output').value = preferences.output || state.defaultOutput;
   if (state.models.includes(preferences.model)) $('model').value = preferences.model;
   if (['2', '4'].includes(preferences.overlap)) $('overlap').value = preferences.overlap;
+  for (const option of Object.keys(options)) {
+    if (typeof preferences[option] === 'boolean') options[option] = preferences[option];
+    $(OPTION_BUTTONS[option]).addEventListener('click', () => {
+      options[option] = !options[option];
+      savePreferences();
+      render();
+    });
+  }
   if (!api.desktop) {
     // In a plain browser there are no file dialogs; paths are typed instead.
     $('choose-file').hidden = true;
