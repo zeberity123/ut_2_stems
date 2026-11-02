@@ -42,9 +42,51 @@ def _load_bs_roformer_sw(device: torch.device):
             warnings.simplefilter("ignore", UserWarning)
             model = get_model_from_config("bs_roformer", config)
         model.load_state_dict(torch.load(ckpt, map_location="cpu"))
+        if device.type == "xpu":
+            _fix_for_xpu(model)
         _sw_cache.clear()
         _sw_cache[key] = (model.to(device).eval(), config)
     return _sw_cache[key]
+
+
+def _fix_for_xpu(model: torch.nn.Module) -> None:
+    """Work around two problems that make BS-RoFormer return NaN or damaged audio on Intel GPUs.
+
+    1. ``Attend`` runs attention inside ``torch.backends.cuda.sdp_kernel(...)``, which on
+       XPU turns off the native attention kernel and falls back to the generic "math"
+       path. On Arc GPUs that path returns NaN once a chunk is longer than ~4 s.
+       Calling ``scaled_dot_product_attention`` directly uses the XPU kernel. Its float16
+       (and bfloat16) version returns NaN on some chunks for the short frequency axis
+       (62 bands), so that axis runs in float32. The long time axis, which is most of
+       the work, stays in float16: that halves the time per chunk and was NaN-free on
+       every chunk of the songs it was tested on.
+    2. ``RotaryEmbedding`` turns off autocast for CUDA only, so on XPU the rotation
+       angles (up to ~1150 radians) were computed in float16 and cached. Computing them
+       in float32 keeps float16 inference as accurate as float32.
+    """
+    from bs_roformer.attend import Attend
+    from rotary_embedding_torch import RotaryEmbedding
+
+    def attention(q, k, v, scale=None):
+        if scale is not None:
+            q = q * (scale / q.shape[-1] ** -0.5)
+        dtype = q.dtype if q.shape[-2] >= 256 else torch.float32
+        with torch.autocast("xpu", enabled=False):  # autocast would cast back to float16
+            out = torch.nn.functional.scaled_dot_product_attention(
+                q.to(dtype), k.to(dtype), v.to(dtype))
+        return out.to(q.dtype)
+
+    def without_autocast(forward):
+        def run(*args, **kwargs):
+            with torch.autocast("xpu", enabled=False):
+                return forward(*args, **kwargs)
+        return run
+
+    for module in model.modules():
+        if isinstance(module, Attend):
+            module.flash_attn = lambda q, k, v, scale=module.scale: attention(q, k, v, scale)
+        elif isinstance(module, RotaryEmbedding):
+            module.forward = without_autocast(module.forward)
 
 
 def _bs_roformer_sw(mix: np.ndarray, device: torch.device, overlap: int,
@@ -93,7 +135,10 @@ def _bs_roformer_sw(mix: np.ndarray, device: torch.device, overlap: int,
             progress(min(start, total) / total)
 
     stems = (result / weight).cpu().numpy()
-    np.nan_to_num(stems, copy=False, nan=0.0)
+    if not np.isfinite(stems).all():
+        # Never write silent files: a NaN here means the device computed garbage.
+        raise RuntimeError(f"The separation produced invalid audio on {device.type}. "
+                           "Try another device (for example cpu) under Advanced.")
     if padded:
         stems = stems[..., border:-border]
     return dict(zip(names, stems))
