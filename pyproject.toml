@@ -16,6 +16,7 @@ dependencies = [
     "bs-roformer-infer>=0.1.5",
     "demucs>=4.1",
     "yt-dlp[default]>=2026.8.19",
+    "cryptography",
 ]
 
 [project.scripts]

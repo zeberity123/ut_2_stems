@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Builds the standalone Windows app: dist\UT-Stems-<version>-win64-<edition>\UT Stems\ and its archive.
 
@@ -8,6 +8,8 @@
     electron  the desktop window (needs Node.js; downloads @electron/packager with npx)
     assemble  puts the engine into the window's resources folder and adds ut-stems.cmd
     archive   7-Zip: one .zip for the cpu edition, 1.9 GB .7z volumes for the cuda and xpu editions
+    client    UT Stems Client only (no engine, any PC): dist\UT-Stems-Client-<version>-win64.zip.
+              Not part of 'all':  packaging\build.ps1 -Stage client
 
   The edition comes from the PyTorch build installed in the Python that is used:
     packaging\build.ps1 -Edition cuda                                        (default Python, CUDA torch)
@@ -18,12 +20,12 @@
 param(
   [ValidateSet('cuda', 'xpu', 'cpu')] [string]$Edition = 'cuda',
   [string]$Python = 'python',
-  [string[]]$Stage = @('all'),   # any of: all, engine, electron, assemble, archive (comma separated)
+  [string[]]$Stage = @('all'),   # any of: all, engine, electron, assemble, archive, client (comma separated)
   [string]$SevenZip = "$env:ProgramFiles\7-Zip\7z.exe"
 )
 $ErrorActionPreference = 'Stop'
 $Stage = @($Stage | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-foreach ($s in $Stage) { if ($s -notin 'all', 'engine', 'electron', 'assemble', 'archive') { throw "Unknown stage: $s" } }
+foreach ($s in $Stage) { if ($s -notin 'all', 'engine', 'electron', 'assemble', 'archive', 'client') { throw "Unknown stage: $s" } }
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 $dist = Join-Path $root 'dist'
 Set-Location $root
@@ -76,6 +78,45 @@ if (Want 'electron') {
     "--icon=$(Join-Path $root 'packaging\icon.ico')", "--app-version=$version",
     '--win32metadata.CompanyName=zeberity123', '--win32metadata.ProductName=UT Stems',
     '--win32metadata.FileDescription=UT Stems')
+}
+
+if ($Stage -contains 'client') {
+  # The client needs no Python: the server PC does the separating and serves the interface.
+  $clientName = "UT-Stems-Client-$version-win64"
+  Write-Host "== $clientName"
+  $staging = Join-Path $dist 'stage-client'
+  $clientOut = Join-Path $dist 'electron-client'
+  foreach ($d in $staging, $clientOut, (Join-Path $dist $clientName)) { if (Test-Path $d) { Remove-Item $d -Recurse -Force } }
+  New-Item -ItemType Directory (Join-Path $staging 'desktop') -Force | Out-Null
+  foreach ($f in 'client.cjs', 'client-preload.cjs', 'setup.html', 'setup.js') { Copy-Item (Join-Path $root "desktop\$f") (Join-Path $staging 'desktop') }
+  $package = Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json
+  $package.name = 'ut-stems-client'; $package.productName = 'UT Stems Client'; $package.main = 'desktop/client.cjs'
+  $package.PSObject.Properties.Remove('devDependencies'); $package.PSObject.Properties.Remove('scripts')
+  [IO.File]::WriteAllText((Join-Path $staging 'package.json'), ($package | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+  if (-not (Test-Path (Join-Path $root 'packaging\icon.ico'))) {
+    Run (Join-Path $root 'node_modules\electron\dist\electron.exe') @((Join-Path $root 'packaging\make-icon.cjs'))
+  }
+  $electron = (Get-Content (Join-Path $root 'node_modules\electron\package.json') | ConvertFrom-Json).version
+  Run 'npx.cmd' @('--yes', '@electron/packager@18', $staging, 'UT Stems Client', '--platform=win32', '--arch=x64',
+    "--out=$clientOut", '--overwrite', '--asar', '--no-prune', "--electron-version=$electron",
+    "--icon=$(Join-Path $root 'packaging\icon.ico')", "--app-version=$version",
+    '--win32metadata.CompanyName=zeberity123', '--win32metadata.ProductName=UT Stems Client',
+    '--win32metadata.FileDescription=UT Stems Client')
+  $clientRelease = Join-Path $dist $clientName
+  New-Item -ItemType Directory $clientRelease | Out-Null
+  Copy-Item (Join-Path $clientOut 'UT Stems Client-win32-x64') (Join-Path $clientRelease 'UT Stems Client') -Recurse
+  Copy-Item (Join-Path $root 'packaging\README-client.txt') (Join-Path $clientRelease 'UT Stems Client\README.txt')
+  Remove-Item $staging, $clientOut -Recurse -Force
+  if (Test-Path $SevenZip) {
+    $zip = Join-Path $dist "$clientName.zip"
+    if (Test-Path $zip) { Remove-Item $zip -Force }
+    Push-Location $clientRelease
+    try { Run $SevenZip @('a', '-tzip', '-mx=5', '-mmt=on', $zip, 'UT Stems Client') } finally { Pop-Location }
+    '{0}  {1}' -f (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower(), (Split-Path $zip -Leaf) |
+      Set-Content (Join-Path $dist "$clientName.sha256") -Encoding ascii
+    Write-Host ('   {0}: {1:N0} MB' -f (Split-Path $zip -Leaf), ((Get-Item $zip).Length / 1MB))
+  }
+  if ($Stage.Count -eq 1) { Write-Host 'Done.'; exit 0 }
 }
 
 if (Want 'assemble') {

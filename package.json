@@ -8,7 +8,9 @@
   "author": "zeberity123",
   "scripts": {
     "start": "electron .",
-    "test:desktop": "node scripts/test-desktop.cjs"
+    "client": "electron desktop/client.cjs",
+    "test:desktop": "node scripts/test-desktop.cjs",
+    "test:client": "node scripts/test-client.cjs"
   },
   "devDependencies": {
     "electron": "44.5.1",

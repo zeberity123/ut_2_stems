@@ -5,6 +5,8 @@ export class StemsAPI {
     if (this.token) sessionStorage.setItem('ut-stems-session', this.token);
     history.replaceState(null, '', location.pathname);
     this.desktop = window.desktop ?? null;
+    // In UT Stems Client the songs are separated on another PC and saved on this one.
+    this.remote = Boolean(this.desktop?.remote);
   }
   url(path, values = {}) {
     return `/api/${path}?${new URLSearchParams({token: this.token, ...values})}`;
@@ -29,4 +31,13 @@ export class StemsAPI {
   pathForFile(file) { return this.desktop?.pathForFile(file) ?? ''; }
   async preferences() { return (await this.desktop?.getPreferences()) ?? {}; }
   savePreferences(values) { return this.desktop?.setPreferences(values); }
+  // UT Stems Client only
+  serverInfo() { return this.desktop.serverInfo(); }
+  forgetServer() { return this.desktop.forgetServer(); }
+  uploadFiles(paths) { return this.desktop.uploadFiles(paths); }
+  onUploadProgress(callback) { this.desktop?.onUploadProgress?.(callback); }
+  saveResult(values) { return this.desktop.saveResult(values); }
+  savedFolder(key) { return this.desktop.savedFolder(key); }
+  renameLocal(values) { return this.desktop.renameLocal(values); }
+  openLocalFolder(key) { return this.desktop.openLocalFolder(key); }
 }

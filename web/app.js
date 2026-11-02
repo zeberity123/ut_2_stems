@@ -26,6 +26,14 @@ const tracks = new Map();    // stem -> {audio, row, canvas, peaks, solo, mute, 
 const results = new Map();   // song id -> finished result with waveforms
 const songRows = new Map();  // song id -> list row elements
 const options = {autoTitle: true, keepOriginal: true};  // the toggles under Advanced
+// UT Stems Client: separated on the server PC, saved on this one.
+const remote = api.remote;
+let server = null;               // {name, address, defaultOutput}
+let uploading = null;            // {name, index, count, fraction} while files go to the server
+const folderFor = new Map();     // song id -> folder on this PC chosen when it was started
+const saving = new Map();        // song id -> 'saving' | 'saved' | error message
+const savedKey = id => `${state.boot}:${id}`;
+const cleanError = error => String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 const OPTION_BUTTONS = {autoTitle: 'auto-title', keepOriginal: 'keep-original'};
 
 // ---------------------------------------------------------------- settings
@@ -104,8 +112,7 @@ function buildMixer(result) {
   tracks.clear();
   shownId = result.id;
   $('song').textContent = result.song;
-  $('meta').textContent = `${clock(result.duration)} · ${result.stems.length} stems · ` +
-    `${MODEL_LABELS[result.model] ?? result.model} · separated in ${Math.round(result.seconds)} s · ${result.folder}`;
+  showMeta(result);
   $('seek').max = result.duration;
   $('duration').textContent = clock(result.duration);
 
@@ -160,6 +167,17 @@ function buildMixer(result) {
   }));
   showTime(0);
   requestAnimationFrame(() => tracks.forEach(drawWave));
+}
+
+function showMeta(result) {
+  let folder = result.folder;
+  if (remote) {
+    const saved = saving.get(result.id);
+    folder = saved === 'saved' ? `saved in ${folderFor.get(result.id) ?? ''}`
+      : saved === 'saving' || saved === undefined ? 'saving to this PC…' : 'not saved on this PC';
+  }
+  $('meta').textContent = `${clock(result.duration)} · ${result.stems.length} stems · ` +
+    `${MODEL_LABELS[result.model] ?? result.model} · separated in ${Math.round(result.seconds)} s · ${folder}`;
 }
 
 function masterAudio() { return tracks.values().next().value?.audio ?? null; }
@@ -231,7 +249,12 @@ const RENAMABLE = ['waiting', 'queued', 'done'];
 
 function songStatus(song) {
   if (song.status === 'running') return song.message;
-  if (song.status === 'done') return `${song.stems} stems · ${song.seconds} s`;
+  if (song.status === 'done') {
+    const text = `${song.stems} stems · ${song.seconds} s`;
+    const saved = saving.get(song.id);
+    if (!remote || saved === 'saved') return text;
+    return saved === 'saving' || saved === undefined ? `${text} · saving…` : `${text} · not saved`;
+  }
   if (song.status === 'waiting' && song.message === 'Cancelled') return 'Cancelled';
   return STATUS_TEXT[song.status] ?? song.status;
 }
@@ -266,10 +289,17 @@ function startRename(id) {
 
 async function rename(id, name) {
   const done = state.songs.find(song => song.id === id)?.status === 'done';
+  const before = done && remote ? (results.get(id) ?? await api.result(id).catch(() => null)) : null;
   if (!await command('rename', {id, name}) || !done) return;
   // The files have new names. The players keep going: they ask for a stem by song and instrument.
   try {
     const result = await api.result(id);
+    if (remote && before) {
+      // The copies saved on this PC follow.
+      const pairs = before.stems.map(stem => [stem.file, result.stems.find(other => other.name === stem.name)?.file]);
+      if (before.original && result.original) pairs.push([before.original, result.original]);
+      await api.renameLocal({key: savedKey(id), pairs: pairs.filter(([, to]) => to)});
+    }
     results.set(id, result);
     if (shownId === id) {
       $('song').textContent = result.song;
@@ -384,14 +414,16 @@ function render() {
   for (const [option, id] of Object.entries(OPTION_BUTTONS)) $(id).setAttribute('aria-pressed', String(options[option]));
   const typed = Boolean($('source').value.trim());
   const ready = waitingCount() + (typed ? 1 : 0);
-  $('add-source').disabled = requesting || !typed;
-  $('choose-file').disabled = requesting;
+  $('add-source').disabled = requesting || !typed || Boolean(uploading);
+  $('choose-file').disabled = requesting || Boolean(uploading);
   $('separate').disabled = requesting || !selected.size || !ready;
   $('separate-label').textContent = ready > 1 ? `Separate ${ready} songs` : 'Separate stems';
 
   let status = state.message;
-  if (failures >= 3) status = 'The processing engine stopped. Restart the app.';
-  else if (!busy && ready) status = ready === 1 ? '1 song ready. Press Separate stems.' : `${ready} songs ready. Press Separate ${ready} songs.`;
+  if (uploading) status = `Sending ${uploading.name} to ${server?.name ?? 'the server'}` +
+    `${uploading.count > 1 ? ` (${uploading.index + 1} of ${uploading.count})` : ''}… ${Math.round(uploading.fraction * 100)}%`;
+  else if (failures >= 3) status = remote ? `Lost the connection to ${server?.name ?? 'the server'}.` : 'The processing engine stopped. Restart the app.';
+  else if (!busy && ready && !uploading) status = ready === 1 ? '1 song ready. Press Separate stems.' : `${ready} songs ready. Press Separate ${ready} songs.`;
   $('status').textContent = status;
   $('status-dot').classList.toggle('busy', busy);
   $('progress').hidden = !busy;
@@ -448,18 +480,73 @@ async function poll() {
   } catch {
     failures += 1;
   }
+  if (remote && state) saveFinished();
   render();
   setTimeout(poll, state?.busy ? 350 : 900);
 }
 
+const isLink = text => /^https?:\/\//i.test(text.trim());
+
 async function addSources(sources) {
   localError = '';
   const before = new Set(state.songs.map(song => song.id));
+  if (remote && sources.some(source => !isLink(source))) {
+    // Files go to the server PC; only links are added by name.
+    if (!await upload(sources.filter(source => !isLink(source)))) return false;
+    sources = sources.filter(isLink);
+    if (!sources.length) { selectAdded(before); return true; }
+  }
   if (!await command('add', {sources})) return false;
+  selectAdded(before);
+  return true;
+}
+
+function selectAdded(before) {
   // Show the first newly added song unless one is being separated.
   const added = state.songs.find(song => !before.has(song.id));
   if (added && state.running == null) { selectedId = added.id; follow = false; render(); }
-  return true;
+}
+
+// UT Stems Client: send files to the server PC, which separates them.
+async function upload(paths) {
+  uploading = {name: paths[0].split(/[\\/]/).pop(), index: 0, count: paths.length, fraction: 0};
+  render();
+  try {
+    const {added, errors} = await api.uploadFiles(paths);
+    if (errors.length) localError = `Could not send ${errors.join('; ')}`;
+    state = await api.state();
+    return added.length > 0;
+  } catch (error) {
+    localError = cleanError(error);
+    return false;
+  } finally {
+    uploading = null;
+    render();
+  }
+}
+
+// UT Stems Client: download each finished song into the folder chosen when it was started.
+function saveFinished() {
+  for (const song of state.songs) {
+    if (song.status !== 'done' || saving.has(song.id)) continue;
+    saving.set(song.id, 'saving');
+    const key = savedKey(song.id);
+    const folder = folderFor.get(song.id) || $('output').value.trim() || server?.defaultOutput;
+    (async () => {
+      try {
+        const already = await api.savedFolder(key);
+        const where = already ?? (await api.saveResult({key, id: song.id, folder})).folder;
+        folderFor.set(song.id, where);
+        saving.set(song.id, 'saved');
+      } catch (error) {
+        saving.set(song.id, cleanError(error));
+        localError = `${song.title} could not be saved on this PC: ${cleanError(error)}`;
+      }
+      const result = results.get(song.id);
+      if (result && shownId === song.id) showMeta(result);
+      render();
+    })();
+  }
 }
 
 async function addTyped() {
@@ -476,6 +563,7 @@ async function separate() {
   localError = '';
   if (!await addTyped()) return;
   follow = true;
+  for (const song of state.songs) if (song.status === 'waiting') folderFor.set(song.id, $('output').value.trim());
   await command('start', {stems: stemList(), output: $('output').value.trim(),
     model: $('model').value, overlap: Number($('overlap').value), ...options});
 }
@@ -487,7 +575,15 @@ async function start() {
   buildChips(state.stems);
   const saved = Array.isArray(preferences.stems) ? preferences.stems.filter(stem => state.stems.includes(stem)) : [];
   for (const stem of saved.length ? saved : state.stems) selected.add(stem);
-  $('output').value = preferences.output || state.defaultOutput;
+  if (remote) {
+    server = await api.serverInfo();
+    $('server-chip').hidden = false;
+    $('server-chip').textContent = `on ${server.name} ✕`;
+    document.querySelector('.local-label').textContent = `RUNS ON ${server.name.toUpperCase()}`;
+    $('server-chip').addEventListener('click', () => api.forgetServer());
+    api.onUploadProgress(progress => { if (progress) { uploading = progress; render(); } });
+  }
+  $('output').value = preferences.output || (remote ? server.defaultOutput : state.defaultOutput);
   if (state.models.includes(preferences.model)) $('model').value = preferences.model;
   if (['2', '4'].includes(preferences.overlap)) $('overlap').value = preferences.overlap;
   for (const option of Object.keys(options)) {
@@ -523,7 +619,10 @@ async function start() {
   $('separate').addEventListener('click', separate);
   $('cancel').addEventListener('click', () => command('cancel'));
   $('clear-finished').addEventListener('click', () => command('clear-finished'));
-  $('open-folder').addEventListener('click', () => command('open-folder', {id: shownId}));
+  $('open-folder').addEventListener('click', () => {
+    if (remote) api.openLocalFolder(savedKey(shownId)).catch(error => showError(cleanError(error)));
+    else command('open-folder', {id: shownId});
+  });
   $('dismiss-error').addEventListener('click', () => { localError = ''; render(); });
 
   $('play').addEventListener('click', () => { if (playing) pause(); else play(); });
