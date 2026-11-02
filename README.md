@@ -21,7 +21,49 @@ Everything runs on your own PC. It comes as a desktop app and as a command.
 The default model is BS-RoFormer SW; HT-Demucs 6s is available as a faster alternative.
 On an RTX 3060 a 4-minute song takes about a minute and uses under 4 GB of VRAM.
 
-## Requirements
+## Download (no installation)
+
+The [latest release](https://github.com/zeberity123/ut_2_stems/releases/latest) has the app as a
+folder with everything inside: the window, Python, PyTorch, the CUDA libraries and ffmpeg. Nothing
+else needs to be installed, not even Python or the CUDA toolkit.
+
+| Download | For | Size |
+|---|---|---|
+| `UT-Stems-<version>-win64-cuda.7z.001` | PCs with an NVIDIA GPU (GTX 10 series or newer, current driver) | about 1.7 GB |
+| `UT-Stems-<version>-win64-xpu.7z.001` | PCs with an Intel GPU: Arc A/B series, or the Arc graphics in Core Ultra laptops | about 1.2 GB |
+| `UT-Stems-<version>-win64-cpu.zip` | everything else (no GPU, or an AMD GPU) | about 410 MB |
+
+Every edition also runs on the CPU when its GPU is not found, so the CUDA edition is a safe choice
+for any PC; the others are just smaller.
+
+1. Download the file (if an edition has several parts, `.001`, `.002`, …, put them in the same folder).
+2. Extract: right-click the `.zip` > **Extract all**, or for a `.7z.001` file install
+   [7-Zip](https://www.7-zip.org/) and right-click it > **7-Zip > Extract here**. GitHub limits files to
+   2 GB, which is why the GPU editions are 7z files, possibly in parts.
+3. Open the `UT Stems` folder and double-click **UT Stems.exe**. Windows SmartScreen may warn because
+   the program is not signed: **More info > Run anyway**.
+
+The command line is in the same folder: `ut-stems.cmd "song.mp3" -o D:\stems`.
+
+**GPU or CPU.** Nothing besides the graphics driver needs to be installed: the CUDA edition carries
+the CUDA runtime and the XPU edition carries Intel's oneAPI runtime. The header shows which device is
+in use; *CPU · no supported GPU found* means the edition could not use a GPU, and the app then
+recommends HT-Demucs 6s under the model choice. Times for a 4-minute song:
+
+| Model | 8-core CPU (i7-10700F) | RTX 3060 |
+|---|---|---|
+| BS-RoFormer SW (default, best quality) | about 25 min | about 1 min |
+| HT-Demucs 6s (choose it under *Advanced*) | about 2 min | about 15 s |
+
+A laptop CPU with fewer cores takes proportionally longer. Intel GPUs: the XPU edition uses PyTorch's
+Intel GPU back end, which needs a recent Intel graphics driver
+([intel.com/download](https://www.intel.com/content/www/us/en/download-center/home.html), Arc or
+Core Ultra graphics driver). It has not been timed on Intel hardware yet. Intel's NPU (*AI Boost*) is
+not used: the separation models would have to be converted to OpenVINO first.
+
+## Running from source
+
+### Requirements
 
 - Windows 10/11
 - Python 3.10 or newer, on PATH (`winget install Python.Python.3.10`)
@@ -29,7 +71,7 @@ On an RTX 3060 a 4-minute song takes about a minute and uses under 4 GB of VRAM.
 - About 10 GB of free disk space
 - ffmpeg and Node.js: `setup.bat` installs both with winget if they are missing
 
-## Setup
+### Setup
 
 ```
 git clone https://github.com/zeberity123/ut_2_stems.git
@@ -95,7 +137,7 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | `--model` | `bs_roformer_sw` or `htdemucs_6s` | `bs_roformer_sw` |
 | `--overlap` | `2`, `3` or `4`; higher is slower and slightly smoother | `2` |
 | `--bitrate` | MP3 bitrate | `320k` |
-| `--device` | `auto`, `cuda` or `cpu` | `auto` |
+| `--device` | `auto`, `cuda` (NVIDIA), `xpu` (Intel GPU) or `cpu` | `auto` |
 
 ## How it is built
 
@@ -106,6 +148,7 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | Local server for the app (127.0.0.1, session token) | `ut_stems/server.py` |
 | Interface | `web/` |
 | Desktop shell | `desktop/` (Electron) |
+| Standalone build | `packaging/` (PyInstaller spec, Electron packager, `build.ps1`) |
 
 The app structure and look follow [yt_to_score](https://github.com/zeberity123/yt_to_score); the
 YouTube audio download follows [ut_downloader](https://github.com/zeberity123/ut_downloader).
@@ -118,7 +161,28 @@ python -m pytest -m slow     separation on a short clip, needs the GPU
 npm run test:desktop         launches the app, queues two clips, checks the list and the mixer
 ```
 
+## Building the standalone app
+
+`packaging\build.ps1` builds the folder that the releases contain. It needs 7-Zip
+(`winget install 7zip.7zip`) and Node.js, and about 15 GB of free disk space for the CUDA edition.
+
+```
+packaging\build.ps1 -Edition cuda                                        # default Python has the CUDA torch
+packaging\build.ps1 -Edition xpu -Python C:\envs\xpu\Scripts\python.exe  # a Python with torch from whl/xpu
+packaging\build.ps1 -Edition cpu -Python C:\envs\cpu\Scripts\python.exe  # a Python with the CPU torch
+```
+
+The result is `dist\UT-Stems-<version>-win64-<edition>\UT Stems\` plus the archive next to it.
+Inside, `resources\engine\` holds the Python side as `ut-stems-engine.exe` (the local server) and
+`ut-stems.exe` (the command line), built from `packaging\ut_stems.spec`; the window is Electron with
+the engine folder dropped into `resources\`. When packaged, the window runs the engine instead of
+`python -m ut_stems.server`, and lends itself to yt-dlp as the Node.js runtime that YouTube
+downloads need.
+
 ## Notes
+
+- The packaged app includes ffmpeg from [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) (GPL; its
+  licence is in `resources\engine\ffmpeg-LICENSE.txt`), PyTorch, yt-dlp, Demucs and BS-RoFormer.
 
 - The BS-RoFormer SW checkpoint is a community release whose licence is listed as unknown on
   Hugging Face. It is downloaded at run time and is not part of this repository.

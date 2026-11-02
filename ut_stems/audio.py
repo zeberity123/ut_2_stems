@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
 
 import numpy as np
+
+from .paths import ROOT
 
 SR = 44100
 
@@ -16,6 +19,13 @@ class AudioError(Exception):
 
 
 def _ffmpeg() -> str:
+    """``UT_STEMS_FFMPEG``, then the ffmpeg shipped next to the packaged app, then PATH."""
+    chosen = os.environ.get("UT_STEMS_FFMPEG")
+    if chosen and Path(chosen).is_file():
+        return chosen
+    bundled = ROOT / "ffmpeg.exe"
+    if bundled.is_file():
+        return str(bundled)
     exe = shutil.which("ffmpeg")
     if exe is None:
         raise AudioError("ffmpeg was not found on PATH. Install it "

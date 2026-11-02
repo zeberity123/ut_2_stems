@@ -120,3 +120,38 @@ def test_cli_rejects_unknown_stem():
     with pytest.raises(SystemExit) as error:
         cli_main(["song.mp3", "--stems", "vocals,kazoo"])
     assert error.value.code == 2
+
+
+def test_download_names_the_file_after_the_title(tmp_path, monkeypatch):
+    """The downloaded MP3 is <title>.mp3, or <name>.mp3 when a name is given."""
+    import sys
+    import types
+    from ut_stems import youtube
+
+    class FakeYDL:
+        def __init__(self, opts):
+            self.opts = opts
+            assert "node" in opts.get("js_runtimes", {}), "the runtime from UT_STEMS_NODE is used"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def extract_info(self, url, download):
+            source = tmp_path / "_tmp_audio.mp3"
+            encode_mp3(tone(0.5), source)
+            return {"title": "Shine on Me", "id": "suv0x6HfRhw",
+                    "requested_downloads": [{"filepath": str(source)}]}
+
+    fake = types.ModuleType("yt_dlp")
+    fake.YoutubeDL = FakeYDL
+    fake.utils = types.SimpleNamespace(DownloadError=Exception)
+    monkeypatch.setitem(sys.modules, "yt_dlp", fake)
+    monkeypatch.setenv("UT_STEMS_NODE", sys.executable)  # any existing file stands in for Node
+
+    path, title = youtube.download_mp3("https://youtu.be/suv0x6HfRhw", tmp_path)
+    assert (path.name, title) == ("Shine on Me.mp3", "Shine on Me")
+    path, _ = youtube.download_mp3("https://youtu.be/suv0x6HfRhw", tmp_path, name="My: Song")
+    assert path.name == "My_ Song.mp3"

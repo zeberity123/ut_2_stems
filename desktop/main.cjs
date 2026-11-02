@@ -27,12 +27,23 @@ else {
 }
 
 async function start() {
-  // The processing engine runs in the default Python, where ut_stems and PyTorch are installed.
-  const python = process.env.UT_STEMS_PYTHON || 'python';
   const token = crypto.randomBytes(32).toString('hex');
-  backend = spawn(python, ['-m', 'ut_stems.server'], {
-    cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
-    env: {...process.env, UT_STEMS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1'}});
+  const env = {...process.env, UT_STEMS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1'};
+  // The packaged app ships the processing engine (Python, PyTorch and ffmpeg) in
+  // resources/engine. From a source checkout it runs in the default Python instead.
+  const engineDir = path.join(process.resourcesPath, 'engine');
+  const engine = path.join(engineDir, 'ut-stems-engine.exe');
+  const packaged = app.isPackaged && fs.existsSync(engine);
+  let command, args, cwd;
+  if (packaged) {
+    command = engine; args = []; cwd = engineDir;
+    // YouTube downloads need a JavaScript runtime; this Electron serves as Node.
+    env.UT_STEMS_NODE = process.execPath;
+    env.ELECTRON_RUN_AS_NODE = '1';
+  } else {
+    command = process.env.UT_STEMS_PYTHON || 'python'; args = ['-m', 'ut_stems.server']; cwd = root;
+  }
+  backend = spawn(command, args, {cwd, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env});
   let errors = '';
   backend.stderr.on('data', chunk => { errors = (errors + chunk.toString()).slice(-4000); });
   const port = await new Promise((resolve, reject) => {
@@ -43,7 +54,8 @@ async function start() {
     });
     backend.once('error', error => {
       clearTimeout(timer);
-      reject(error.code === 'ENOENT' ? new Error('Python was not found. Install Python 3.10 or newer and follow the setup steps in README.md.') : error);
+      reject(error.code === 'ENOENT' ? new Error(packaged ? `The processing engine is missing: ${engine}`
+        : 'Python was not found. Install Python 3.10 or newer and follow the setup steps in README.md.') : error);
     });
     backend.once('exit', code => { clearTimeout(timer); reject(new Error(errors || `Processing engine exited (${code}).`)); });
   });

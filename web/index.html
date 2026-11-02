@@ -36,6 +36,7 @@
             <div class="loading-spinner" aria-hidden="true"></div>
             <h2 id="working-title">Working…</h2>
             <p id="working-note">A 4-minute song takes about a minute. The very first run also downloads the model (about 670 MB).</p>
+            <p id="working-note-cpu" hidden>No supported GPU was found, so this runs on the CPU and takes a while. You can keep using the PC in the meantime.</p>
           </div>
           <div id="mixer" class="mixer" hidden>
             <div class="mixer-heading">
@@ -80,6 +81,7 @@
               <option value="bs_roformer_sw">BS-RoFormer SW (best quality)</option>
               <option value="htdemucs_6s">HT-Demucs 6s (faster)</option>
             </select>
+            <p id="cpu-note" class="help cpu-note" hidden></p>
             <label class="field-label" for="overlap">Chunk blending</label>
             <select id="overlap">
               <option value="2">Standard</option>

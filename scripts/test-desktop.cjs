@@ -4,6 +4,7 @@
 //   npm run test:desktop                              (two synthetic 20 s clips, queued)
 //   set UT_STEMS_TEST_SOURCE=<file or YouTube link>   (one real song instead)
 //   set UT_STEMS_TEST_STEMS=vocals,bass,drums,guitars (stems to select, default all)
+//   set UT_STEMS_TEST_APP=<path to UT Stems.exe>       (test the packaged app instead of the source)
 const {_electron: electron} = require('playwright');
 const {spawnSync} = require('node:child_process');
 const path = require('node:path');
@@ -31,7 +32,9 @@ const assert = require('node:assert/strict');
 
   const profile = path.join(diagnostics, 'profile');
   fs.rmSync(profile, {recursive: true, force: true});
-  const app = await electron.launch({args: [root, `--user-data-dir=${profile}`], cwd: root,
+  const packagedApp = process.env.UT_STEMS_TEST_APP;
+  const app = await electron.launch({...(packagedApp ? {executablePath: packagedApp} : {}),
+    args: [...(packagedApp ? [] : [root]), `--user-data-dir=${profile}`], cwd: root,
     env: {...process.env, ELECTRON_DISABLE_SECURITY_WARNINGS: 'true'}});
   const page = await app.firstWindow();
   const errors = [];

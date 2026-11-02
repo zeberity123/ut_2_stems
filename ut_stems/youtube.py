@@ -75,8 +75,15 @@ def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = l
         "ffmpeg_location": ffmpeg_dir(),
         "socket_timeout": 20, "retries": 2, "fragment_retries": 2,
     }
-    # YouTube needs a JavaScript runtime to solve its player challenges.
-    runtimes = {name: {} for name in ("deno", "node") if shutil.which(name)}
+    # YouTube needs a JavaScript runtime to solve its player challenges. The packaged app
+    # points UT_STEMS_NODE at its own Electron, which runs as Node; otherwise use PATH.
+    runtimes = {}
+    node = os.environ.get("UT_STEMS_NODE")
+    if node and Path(node).is_file():
+        runtimes["node"] = {"path": node}
+    for runtime in ("deno", "node"):
+        if runtime not in runtimes and shutil.which(runtime):
+            runtimes[runtime] = {}
     if runtimes:
         opts["js_runtimes"] = runtimes
 

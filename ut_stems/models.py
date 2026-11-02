@@ -71,7 +71,7 @@ def _bs_roformer_sw(mix: np.ndarray, device: torch.device, overlap: int,
 
     result = torch.zeros((len(names), *audio.shape), dtype=torch.float32, device=device)
     weight = torch.zeros_like(result)
-    with torch.no_grad(), torch.autocast(device.type, enabled=device.type == "cuda"):
+    with torch.no_grad(), torch.autocast(device.type, dtype=torch.float16, enabled=device.type in ACCELERATORS):
         start = 0
         while start < total:
             _check(cancel)
@@ -121,11 +121,22 @@ def _htdemucs_6s(mix: np.ndarray, device: torch.device, overlap: int,
 MODELS = {"bs_roformer_sw": _bs_roformer_sw, "htdemucs_6s": _htdemucs_6s}
 
 
+# GPU back ends, in the order they are preferred: NVIDIA (CUDA), then Intel (XPU).
+ACCELERATORS = ("cuda", "xpu")
+
+
+def accelerator_available(kind: str) -> bool:
+    """Whether torch can use the given back end here (``torch.xpu`` only exists in some builds)."""
+    backend = getattr(torch, kind, None)
+    return bool(backend is not None and backend.is_available())
+
+
 def pick_device(name: str = "auto") -> torch.device:
     if name == "auto":
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if name == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA was requested but is not available.")
+        return torch.device(next((kind for kind in ACCELERATORS if accelerator_available(kind)), "cpu"))
+    if name in ACCELERATORS and not accelerator_available(name):
+        raise RuntimeError(f"{name} was requested but is not available"
+                           + (" (Intel GPU: update the graphics driver)." if name == "xpu" else "."))
     return torch.device(name)
 
 

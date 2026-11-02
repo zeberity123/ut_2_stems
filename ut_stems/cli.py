@@ -35,8 +35,9 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--overlap", type=int, default=2, choices=[2, 3, 4],
                     help="chunk overlap factor; higher is slower and slightly smoother (default: 2)")
     ap.add_argument("--bitrate", default="320k", help="MP3 bitrate (default: 320k)")
-    ap.add_argument("--device", choices=["auto", "cuda", "cpu"], default="auto",
-                    help="where to run the model (default: auto)")
+    ap.add_argument("--device", choices=["auto", "cuda", "xpu", "cpu"], default="auto",
+                    help="where to run the model: an NVIDIA GPU (cuda), an Intel GPU (xpu) or the CPU "
+                         "(default: auto picks the first one available)")
     ap.add_argument("--version", action="version", version=f"ut-stems {__version__}")
     return ap.parse_args(argv)
 

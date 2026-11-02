@@ -21,9 +21,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from . import DEFAULT_MODEL, MODEL_NAMES, STEMS, Cancelled, __version__
-
-ROOT = Path(__file__).resolve().parent.parent
-WEB = ROOT / "web"
+from .paths import WEB, default_output
 IDLE_MESSAGE = "Paste a YouTube link or choose audio files."
 
 
@@ -51,7 +49,7 @@ class Workspace:
     def __init__(self, output: Path | None = None):
         self.lock = threading.Lock()
         self.cancel = threading.Event()
-        self.default_output = Path(output or os.environ.get("UT_STEMS_OUTPUT") or ROOT / "output")
+        self.default_output = Path(output) if output else default_output()
         self.songs: list[Song] = []
         self.next_id = 1
         self.busy = False  # the worker thread is alive
@@ -62,10 +60,13 @@ class Workspace:
         """Import torch in the background so the first job starts sooner."""
         try:
             import torch
-            if torch.cuda.is_available():
+            from .models import accelerator_available
+            if accelerator_available("cuda"):
                 device = torch.cuda.get_device_name(0).replace("NVIDIA GeForce ", "")
+            elif accelerator_available("xpu"):
+                device = torch.xpu.get_device_name(0).replace("Intel(R) ", "").replace("(TM)", "")
             else:
-                device = "CPU (slow)"
+                device = "CPU · no supported GPU found"
         except Exception as e:  # shown in the header instead of crashing the server
             device = f"unavailable: {e}"
         with self.lock:

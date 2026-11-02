@@ -256,3 +256,4 @@ input.song-rename-input:focus-visible { outline-offset: 0; }
   .status-bar { position: sticky; bottom: 0; padding: 10px 16px; }
   .local-label { display: none; }
 }
+.cpu-note { color: #f0c674; margin-top: 8px; }

@@ -3,6 +3,11 @@ import {StemsAPI} from './api.js';
 const api = new StemsAPI();
 const $ = id => document.getElementById(id);
 const MODEL_LABELS = {bs_roformer_sw: 'BS-RoFormer SW', htdemucs_6s: 'HT-Demucs 6s'};
+// Shown under the model choice when no GPU can be used (times for a 4-minute song on an 8-core CPU).
+const CPU_NOTE = {
+  bs_roformer_sw: 'No supported GPU: on the CPU this model takes about 25 minutes for a 4-minute song. HT-Demucs 6s is much faster.',
+  htdemucs_6s: 'No supported GPU: on the CPU this model takes about 2 minutes for a 4-minute song.',
+};
 const label = stem => stem[0].toUpperCase() + stem.slice(1);
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
@@ -340,6 +345,11 @@ function render() {
 
   $('device').hidden = !state.device;
   $('device').textContent = state.device ?? '';
+  const onCpu = typeof state.device === 'string' && state.device.startsWith('CPU');
+  $('cpu-note').hidden = !onCpu;
+  if (onCpu) $('cpu-note').textContent = CPU_NOTE[$('model').value] ?? '';
+  $('working-note').hidden = onCpu;
+  $('working-note-cpu').hidden = !onCpu;
   renderSongs(songs);
 
   for (const chip of $('stem-chips').children) {
@@ -462,6 +472,7 @@ async function start() {
   }
 
   $('source').addEventListener('input', render);
+  $('model').addEventListener('change', render);
   $('source').addEventListener('keydown', event => { if (event.key === 'Enter') addTyped(); });
   $('add-source').addEventListener('click', addTyped);
   $('choose-file').addEventListener('click', async () => {
