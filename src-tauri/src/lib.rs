@@ -137,12 +137,13 @@ struct Preferences {
     keep_original: bool,
     theme: String,
     format: String,
+    language: String,
 }
 
 impl Default for Preferences {
     fn default() -> Self {
         Self { stems: vec![], output: String::new(), model: String::new(), overlap: String::new(),
-               auto_title: true, keep_original: true, theme: String::new(), format: String::new() }
+               auto_title: true, keep_original: true, theme: String::new(), format: String::new(), language: String::new() }
     }
 }
 
@@ -156,10 +157,14 @@ fn truncate(text: &str, max: usize) -> String {
 
 #[tauri::command]
 fn get_preferences(app: AppHandle) -> Preferences {
-    preferences_path(&app)
+    let mut preferences: Preferences = preferences_path(&app)
         .and_then(|path| fs::read_to_string(path).ok())
         .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    // The themes were called miku and miku-light before 0.6.3.
+    let theme = match preferences.theme.as_str() { "miku" => "theme1", "miku-light" => "theme2", other => other }.to_string();
+    preferences.theme = theme;
+    preferences
 }
 
 /// Saves the preferences the page sends, after checking every field.
@@ -169,6 +174,7 @@ fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), Stri
     let flag = |key: &str| values.get(key).and_then(|v| v.as_bool()).unwrap_or(true);
     let theme = string("theme", 12);
     let format = string("format", 4);
+    let language = string("language", 2);
     let next = Preferences {
         stems: values.get("stems").and_then(|v| v.as_array()).map(|list| {
             list.iter().filter_map(|v| v.as_str()).map(|s| truncate(s, 40)).take(12).collect()
@@ -178,8 +184,9 @@ fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), Stri
         overlap: string("overlap", 4),
         auto_title: flag("autoTitle"),
         keep_original: flag("keepOriginal"),
-        theme: if ["dark", "light", "miku", "miku-light"].contains(&theme.as_str()) { theme } else { String::new() },
+        theme: if ["dark", "light", "theme1", "theme2"].contains(&theme.as_str()) { theme } else { String::new() },
         format: if ["auto", "mp3", "wav"].contains(&format.as_str()) { format } else { String::new() },
+        language: if ["en", "ja", "ko", "zh"].contains(&language.as_str()) { language } else { String::new() },
     };
     let path = preferences_path(&app).ok_or("no settings folder")?;
     if let Some(dir) = path.parent() { fs::create_dir_all(dir).map_err(|e| e.to_string())?; }
@@ -448,8 +455,8 @@ fn open_window(app: &AppHandle, url: WebviewUrl) -> tauri::Result<()> {
     let theme = get_preferences(app.clone()).theme;
     let background = match theme.as_str() {
         "light" => tauri::window::Color(0xF4, 0xF2, 0xEE, 255),
-        "miku" => tauri::window::Color(0x0B, 0x14, 0x13, 255),
-        "miku-light" => tauri::window::Color(0xDC, 0xF2, 0xEF, 255),
+        "theme1" => tauri::window::Color(0x0B, 0x14, 0x13, 255),
+        "theme2" => tauri::window::Color(0xDC, 0xF2, 0xEF, 255),
         _ => tauri::window::Color(0x0B, 0x0C, 0x10, 255),
     };
     let guard = app.clone();

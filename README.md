@@ -119,9 +119,11 @@ When it finishes, the stems open in the mixer and **Open folder** shows the file
 **Format.** *Auto* writes 24-bit WAV stems for a lossless file (WAV, FLAC, AIFF) and 320 kbps MP3
 stems for everything else, YouTube included; *MP3* and *WAV* force one or the other.
 
-**Theme.** The button at the top right steps through light, dark, *Miku* (black, the teal
-`#39c5bb`, pink for what is live) and *Miku in daylight* (the same teal on a pale sky, after her LINE
-theme). Without a choice the app follows Windows.
+**Theme.** The button at the top right steps through light, dark, *Theme 1* (teal on black, pink
+for what is live) and *Theme 2* (the same teal on a pale sky). Without a choice the app follows Windows.
+
+**Language.** English, Japanese, Korean and Chinese. The app follows the Windows display language;
+*Language* at the bottom of the panel pins one.
 
 To separate several songs, add them one by one with **Add** (or Enter), or pick several files at
 once. They appear in the **Songs** list on the left and nothing starts until you press
@@ -221,6 +223,10 @@ puts the engine folder inside the installer as `engine\` next to the executable.
 the engine with a session token and opens its page; the engine exits on its own if the window goes
 away. The window itself is about 10 MB: Tauri uses the WebView2 runtime that is part of Windows 10/11
 instead of shipping a browser.
+
+## Licence
+
+MIT; see `LICENSE`. The bundled parts keep their own licences, listed below.
 
 ## Notes
 

@@ -34,7 +34,7 @@ const running = () => execFileSync('powershell', ['-NoProfile', '-Command', "@(G
   fs.writeFileSync(path.join(engine, 'engine.json'), JSON.stringify({version: '0.6.0', edition: 'cuda'}));
 
   const app = spawn(exe, [], {cwd: install, stdio: 'ignore', detached: true,
-    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`}});
+    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT} --lang=en-US`}});
   app.unref();
   let browser;
   try {

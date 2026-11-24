@@ -58,107 +58,106 @@
   --vocals: #36D1C4; --bass: #6B9BFF; --drums: #FF9A5C; --guitars: #C3E35B; --piano: #C09BFF; --others: #9AA3AC;
   --wave-bg: #101117;
 }
-/* Miku: the one sanctioned exception to the monochrome rule. No picture of her; her things instead:
-   the teal of her hair over its own darker shade, the red "01" on her arm (on the theme button),
-   the headphones with their pink light for what is live, the leek green and the skirt pink among
-   the stems, and a faint digital grid. */
-:root[data-theme="miku"] {
+/* Theme 1: the one sanctioned exception to the monochrome rule. Teal over its own darker shade,
+   a red accent on the theme button, pink for what is live, a leek green and a pink among the stems,
+   and a faint digital grid. */
+:root[data-theme="theme1"] {
   color-scheme: dark;
   --page: #0B1413; --surface: #10201E; --surface-2: #142926; --surface-3: #1C3632;
   --ink: #E6FBF9; --ink-2: rgba(230, 251, 249, .72); --ink-3: rgba(230, 251, 249, .48);
   --line: rgba(57, 197, 187, .16); --line-2: rgba(57, 197, 187, .34);
   --accent: #39C5BB; --accent-ink: #04201D; --accent-soft: rgba(57, 197, 187, .16);
-  --mint: #39C5BB; --warn: #FFB26B; --danger: #E12885; --live: #E12885; --tattoo: #E3242B;
+  --mint: #39C5BB; --warn: #FFB26B; --danger: #E12885; --live: #E12885; --red: #E3242B;
   --shadow: rgba(0, 10, 9, .6); --shadow-strong: rgba(0, 10, 9, .85);
   --vocals: #39C5BB; --bass: #5BA8FF; --drums: #E12885; --guitars: #A6D83D; --piano: #BFF5F0; --others: #8FA7A4;
   --wave-bg: #0A1715;
 }
-:root[data-theme="miku"] body {
+:root[data-theme="theme1"] body {
   scrollbar-color: rgba(57, 197, 187, .4) transparent;
   background-image: linear-gradient(rgba(57, 197, 187, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(57, 197, 187, .05) 1px, transparent 1px);
   background-size: 32px 32px;
 }
-:root[data-theme="miku"] .app-header { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, var(--accent), rgba(57, 197, 187, .15) 55%, transparent) 1; }
-:root[data-theme="miku"] .theme-button[data-theme="miku"] { color: var(--tattoo); border-color: color-mix(in srgb, var(--tattoo) 50%, transparent); }
+:root[data-theme="theme1"] .app-header { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, var(--accent), rgba(57, 197, 187, .15) 55%, transparent) 1; }
+:root[data-theme="theme1"] .theme-button[data-theme="theme1"] { color: var(--red); border-color: color-mix(in srgb, var(--red) 50%, transparent); }
 /* the section labels in teal */
-:root[data-theme="miku"] .section-label, :root[data-theme="miku"] .rail-heading h2 { color: var(--accent); }
+:root[data-theme="theme1"] .section-label, :root[data-theme="theme1"] .rail-heading h2 { color: var(--accent); }
 /* twin-tail glows at the stage's feet, a digital room */
-:root[data-theme="miku"] .stage { isolation: isolate; }
-:root[data-theme="miku"] .stage::before {
+:root[data-theme="theme1"] .stage { isolation: isolate; }
+:root[data-theme="theme1"] .stage::before {
   content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(55% 45% at 0% 100%, rgba(57, 197, 187, .18), transparent 70%),
               radial-gradient(55% 45% at 100% 100%, rgba(57, 197, 187, .13), transparent 70%),
               radial-gradient(40% 30% at 50% 0%, rgba(225, 40, 133, .07), transparent 70%);
 }
-:root[data-theme="miku"] .dropzone::before { border-color: var(--line-2); }
-:root[data-theme="miku"] .dz-arrow { color: var(--accent); box-shadow: 0 0 0 1px var(--line-2), 0 0 28px rgba(57, 197, 187, .3); }
+:root[data-theme="theme1"] .dropzone::before { border-color: var(--line-2); }
+:root[data-theme="theme1"] .dz-arrow { color: var(--accent); box-shadow: 0 0 0 1px var(--line-2), 0 0 28px rgba(57, 197, 187, .3); }
 /* the song title in her hair's gradient */
-:root[data-theme="miku"] .title-view, :root[data-theme="miku"] .working-title h2, :root[data-theme="miku"] .note-panel h2, :root[data-theme="miku"] .setup-panel h1 {
+:root[data-theme="theme1"] .title-view, :root[data-theme="theme1"] .working-title h2, :root[data-theme="theme1"] .note-panel h2, :root[data-theme="theme1"] .setup-panel h1 {
   background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-:root[data-theme="miku"] .title-view:hover:not(:disabled) { background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; text-decoration: underline dotted var(--accent); text-underline-offset: 6px; }
+:root[data-theme="theme1"] .title-view:hover:not(:disabled) { background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; text-decoration: underline dotted var(--accent); text-underline-offset: 6px; }
 /* the main button in plain teal */
-:root[data-theme="miku"] button.primary:hover:not(:disabled) { background: #4FD2C8; border-color: #4FD2C8; }
+:root[data-theme="theme1"] button.primary:hover:not(:disabled) { background: #4FD2C8; border-color: #4FD2C8; }
 /* the play button is an ear cup: black, a teal ring, the pink light when it plays */
-:root[data-theme="miku"] .play { position: relative; background: var(--page); color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 8px 20px -10px var(--shadow-strong); }
-:root[data-theme="miku"] .play:hover:not(:disabled) { background: var(--surface); }
-:root[data-theme="miku"] .play::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); opacity: .35; transition: opacity .3s; }
-:root[data-theme="miku"] .play[aria-pressed="true"]::after { opacity: 1; animation: pulse 1s infinite alternate; }
+:root[data-theme="theme1"] .play { position: relative; background: var(--page); color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 8px 20px -10px var(--shadow-strong); }
+:root[data-theme="theme1"] .play:hover:not(:disabled) { background: var(--surface); }
+:root[data-theme="theme1"] .play::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); opacity: .35; transition: opacity .3s; }
+:root[data-theme="theme1"] .play[aria-pressed="true"]::after { opacity: 1; animation: pulse 1s infinite alternate; }
 /* what is live is pink: the running song, the status light, the playhead, a muted track */
-:root[data-theme="miku"] .song-item.selected { border-left-color: var(--accent); }
-:root[data-theme="miku"] .status-dot.busy, :root[data-theme="miku"] .song-item[data-status=running] small::before { background: var(--live); box-shadow: 0 0 8px var(--live); }
-:root[data-theme="miku"] .wave::after { background: var(--live); box-shadow: 0 0 6px var(--live); }
-:root[data-theme="miku"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
-:root[data-theme="miku"] .track { box-shadow: 0 0 0 1px var(--line); }
-:root[data-theme="miku"] .pill { --c: var(--accent); }
-:root[data-theme="miku"] .ptrack .fill, :root[data-theme="miku"] .ptrack .seg { background: var(--accent); }
-:root[data-theme="miku"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
-:root[data-theme="miku"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--page); }
-/* Miku in daylight, after her LINE theme: a pale sky-mint page with a faint diamond lattice,
-   white cards, a teal band across the top, dark teal type, pink for what is live. Flat; nothing glows. */
-:root[data-theme="miku-light"] {
+:root[data-theme="theme1"] .song-item.selected { border-left-color: var(--accent); }
+:root[data-theme="theme1"] .status-dot.busy, :root[data-theme="theme1"] .song-item[data-status=running] small::before { background: var(--live); box-shadow: 0 0 8px var(--live); }
+:root[data-theme="theme1"] .wave::after { background: var(--live); box-shadow: 0 0 6px var(--live); }
+:root[data-theme="theme1"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
+:root[data-theme="theme1"] .track { box-shadow: 0 0 0 1px var(--line); }
+:root[data-theme="theme1"] .pill { --c: var(--accent); }
+:root[data-theme="theme1"] .ptrack .fill, :root[data-theme="theme1"] .ptrack .seg { background: var(--accent); }
+:root[data-theme="theme1"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
+:root[data-theme="theme1"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--page); }
+/* Theme 2: the same teal in daylight. A pale sky-mint page with a faint diamond lattice, white
+   cards, a teal band across the top, dark teal type, pink for what is live. Flat; nothing glows. */
+:root[data-theme="theme2"] {
   color-scheme: light;
   --page: #DCF2EF; --surface: #FFFFFF; --surface-2: #EEF9F7; --surface-3: #DCEFEC;
   --ink: #163533; --ink-2: #4A6B68; --ink-3: #7E9A97;
   --line: rgba(22, 53, 51, .1); --line-2: rgba(57, 197, 187, .5);
   --accent: #39C5BB; --accent-ink: #0B2A27; --accent-soft: rgba(57, 197, 187, .16);
-  --mint: #1A9E93; --warn: #D1891F; --danger: #E0508C; --live: #FF5FA2; --tattoo: #E3242B;
+  --mint: #1A9E93; --warn: #D1891F; --danger: #E0508C; --live: #FF5FA2; --red: #E3242B;
   --shadow: rgba(22, 53, 51, .14); --shadow-strong: rgba(22, 53, 51, .3);
   --vocals: #1FB5AA; --bass: #3F7FE8; --drums: #E8508F; --guitars: #86B51F; --piano: #7B5FD9; --others: #6E8683;
   --wave-bg: #EAF7F5;
 }
-:root[data-theme="miku-light"] body {
+:root[data-theme="theme2"] body {
   scrollbar-color: rgba(57, 197, 187, .5) transparent;
   background-image: linear-gradient(45deg, rgba(255, 255, 255, .22) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, .22) 75%),
                     linear-gradient(45deg, rgba(255, 255, 255, .22) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, .22) 75%);
   background-size: 64px 64px; background-position: 0 0, 32px 32px;
 }
 /* the teal band, white on it */
-:root[data-theme="miku-light"] .app-header { background: var(--accent); border-bottom-color: transparent; color: #fff; }
-:root[data-theme="miku-light"] .app-header .icon-button, :root[data-theme="miku-light"] .app-header .text-button { background: transparent; border-color: rgba(255, 255, 255, .5); color: #fff; }
-:root[data-theme="miku-light"] .app-header .icon-button:hover:not(:disabled), :root[data-theme="miku-light"] .app-header .text-button:hover:not(:disabled) { background: rgba(255, 255, 255, .18); border-color: #fff; }
-:root[data-theme="miku-light"] .device-chip { color: #fff; border-color: rgba(255, 255, 255, .5); }
-:root[data-theme="miku-light"] .theme-button[data-theme="miku-light"] { color: #fff; }
+:root[data-theme="theme2"] .app-header { background: var(--accent); border-bottom-color: transparent; color: #fff; }
+:root[data-theme="theme2"] .app-header .icon-button, :root[data-theme="theme2"] .app-header .text-button { background: transparent; border-color: rgba(255, 255, 255, .5); color: #fff; }
+:root[data-theme="theme2"] .app-header .icon-button:hover:not(:disabled), :root[data-theme="theme2"] .app-header .text-button:hover:not(:disabled) { background: rgba(255, 255, 255, .18); border-color: #fff; }
+:root[data-theme="theme2"] .device-chip { color: #fff; border-color: rgba(255, 255, 255, .5); }
+:root[data-theme="theme2"] .theme-button[data-theme="theme2"] { color: #fff; }
 /* the panels sit on the sky as white cards */
-:root[data-theme="miku-light"] .song-sidebar, :root[data-theme="miku-light"] .sidebar { background: var(--surface); }
-:root[data-theme="miku-light"] .section-label, :root[data-theme="miku-light"] .rail-heading h2 { color: var(--mint); }
-:root[data-theme="miku-light"] .song-item.selected { border-left-color: var(--accent); }
-:root[data-theme="miku-light"] .dropzone::before { border-color: var(--line-2); }
-:root[data-theme="miku-light"] .dz-arrow { color: var(--accent); background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); }
-:root[data-theme="miku-light"] .track { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+:root[data-theme="theme2"] .song-sidebar, :root[data-theme="theme2"] .sidebar { background: var(--surface); }
+:root[data-theme="theme2"] .section-label, :root[data-theme="theme2"] .rail-heading h2 { color: var(--mint); }
+:root[data-theme="theme2"] .song-item.selected { border-left-color: var(--accent); }
+:root[data-theme="theme2"] .dropzone::before { border-color: var(--line-2); }
+:root[data-theme="theme2"] .dz-arrow { color: var(--accent); background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); }
+:root[data-theme="theme2"] .track { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
 /* teal where something is pressed or playing, like her keypad */
-:root[data-theme="miku-light"] .play { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 20px -10px var(--shadow-strong); }
-:root[data-theme="miku-light"] .play:hover:not(:disabled) { background: #4FD2C8; }
-:root[data-theme="miku-light"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px #fff; }
-:root[data-theme="miku-light"] button.primary:hover:not(:disabled) { background: #4FD2C8; }
-:root[data-theme="miku-light"] .segmented button[aria-checked=true] { color: var(--accent-ink); }
+:root[data-theme="theme2"] .play { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 20px -10px var(--shadow-strong); }
+:root[data-theme="theme2"] .play:hover:not(:disabled) { background: #4FD2C8; }
+:root[data-theme="theme2"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px #fff; }
+:root[data-theme="theme2"] button.primary:hover:not(:disabled) { background: #4FD2C8; }
+:root[data-theme="theme2"] .segmented button[aria-checked=true] { color: var(--accent-ink); }
 /* pink for what is live */
-:root[data-theme="miku-light"] .status-dot.busy, :root[data-theme="miku-light"] .song-item[data-status=running] small::before { background: var(--live); }
-:root[data-theme="miku-light"] .wave::after { background: var(--live); }
-:root[data-theme="miku-light"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
-:root[data-theme="miku-light"] .pill { --c: var(--mint); }
-:root[data-theme="miku-light"] .ptrack .fill, :root[data-theme="miku-light"] .ptrack .seg { background: var(--accent); }
-:root[data-theme="miku-light"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
+:root[data-theme="theme2"] .status-dot.busy, :root[data-theme="theme2"] .song-item[data-status=running] small::before { background: var(--live); }
+:root[data-theme="theme2"] .wave::after { background: var(--live); }
+:root[data-theme="theme2"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
+:root[data-theme="theme2"] .pill { --c: var(--mint); }
+:root[data-theme="theme2"] .ptrack .fill, :root[data-theme="theme2"] .ptrack .seg { background: var(--accent); }
+:root[data-theme="theme2"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
 
 /* Lucian tokens, pointed at the theme above (porting guide §1). */
 :root {
@@ -233,8 +232,8 @@ input[type=range] { accent-color: var(--accent); cursor: pointer; min-width: 0; 
 .theme-button { position: relative; color: var(--ink); }
 .theme-button svg { grid-area: 1 / 1; width: 15px; height: 15px; transition: transform .6s cubic-bezier(.3, 1.4, .5, 1), opacity .25s; }
 .theme-button svg { opacity: 0; transform: rotate(90deg) scale(.6); }
-.theme-button[data-theme="light"] .sun, .theme-button[data-theme="dark"] .moon, .theme-button[data-theme="miku"] .miku, .theme-button[data-theme="miku-light"] .miku { opacity: 1; transform: none; }
-.theme-button[data-theme="miku"], .theme-button[data-theme="miku-light"] { color: var(--accent); }
+.theme-button[data-theme="light"] .sun, .theme-button[data-theme="dark"] .moon, .theme-button[data-theme="theme1"] .one, .theme-button[data-theme="theme2"] .two { opacity: 1; transform: none; }
+.theme-button[data-theme="theme1"], .theme-button[data-theme="theme2"] { color: var(--accent); }
 /* #219: the new theme spreads out in a circle from the button, here through the View Transitions API. */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { animation: theme-reveal .7s cubic-bezier(.65, 0, .35, 1); }
@@ -249,6 +248,10 @@ main { flex: 1; min-height: 0; display: flex; }
 .song-sidebar { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); }
 .rail-heading { display: flex; justify-content: space-between; align-items: center; height: 44px; padding: 0 8px 0 18px; border-bottom: 1px solid var(--line); }
 .rail-heading h2 { margin: 0; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+/* Japanese and Chinese break between any characters; keep-all above is for Korean. */
+:root:is(:lang(ja), :lang(zh)) { word-break: normal; }
+/* CJK type is not tracked out */
+:root:is(:lang(ja), :lang(ko), :lang(zh)) :is(.section-label, .rail-heading h2, .pill, .local-label) { letter-spacing: 0; }
 .rail-heading h2 span { font-family: var(--mono); color: var(--ink-2); padding-left: 4px; }
 .song-list { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 6px 0; }
 .song-item { position: relative; display: flex; align-items: stretch; min-height: 52px; border-left: 2px solid transparent; transition: background-color .15s, border-color .2s; }
@@ -454,6 +457,7 @@ input.song-rename-input { position: absolute; left: 8px; top: 8px; width: calc(1
 .segmented .thumb { position: absolute; top: 4px; bottom: 4px; left: var(--l, 4px); right: var(--r, 4px); border-radius: 9px; background: var(--surface); box-shadow: 0 0 0 1px var(--line), 0 1px 2px var(--shadow), 0 6px 14px -8px var(--shadow-strong); transition: left var(--tl, .5s) cubic-bezier(.3, 1.25, .45, 1), right var(--tr, .5s) cubic-bezier(.3, 1.25, .45, 1); }
 .segmented button { position: relative; z-index: 1; flex: 1; min-width: 0; height: 44px; padding: 0 6px; border: 0; border-radius: 9px; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 12.5px; font-weight: 650; color: var(--ink-3); transition: color .25s; }
 .segmented button small { font-size: 10.5px; font-weight: 500; color: var(--ink-3); }
+.segmented.compact button { height: 34px; padding: 0 3px; font-size: 11.5px; }
 .segmented button:hover:not(:disabled) { color: var(--ink-2); background: none; border: 0; }
 .segmented button:active:not(:disabled) { transform: none; }
 .segmented button[aria-checked=true] { color: var(--ink); }

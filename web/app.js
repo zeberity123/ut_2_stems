@@ -1,5 +1,8 @@
 import {StemsAPI} from './api.js';
 import {inlineTitle, playMorph, pressable, progressTrack, segmented, themeToggle, toaster} from './ui.js';
+import {LANGUAGES, languageChoice, setLanguage, storedChoice, t, tm} from './i18n.js';
+
+setLanguage(storedChoice());  // the saved language, before anything is drawn
 
 const api = new StemsAPI();
 const $ = id => document.getElementById(id);
@@ -9,7 +12,7 @@ const CPU_NOTE = {
   bs_roformer_sw: 'No supported GPU: on the CPU this model takes about 25 minutes for a 4-minute song. HT-Demucs 6s is much faster.',
   htdemucs_6s: 'No supported GPU: on the CPU this model takes about 2 minutes for a 4-minute song.',
 };
-const label = stem => stem[0].toUpperCase() + stem.slice(1);
+const label = stem => t(stem[0].toUpperCase() + stem.slice(1));
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
 let state = null;          // last state from the server
@@ -48,7 +51,7 @@ function currentTheme() {
   if (set) return set;
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
-const THEMES = ['light', 'dark', 'miku', 'miku-light'];
+const THEMES = ['light', 'dark', 'theme1', 'theme2'];
 function applyTheme(theme) {
   if (THEMES.includes(theme)) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
@@ -62,7 +65,7 @@ function stemList() { return (state?.stems ?? []).filter(stem => selected.has(st
 function savePreferences() {
   api.savePreferences({stems: stemList(), output: $('output').value.trim(),
     model: controls.model.value, overlap: controls.overlap.value, format: controls.format.value,
-    theme: document.documentElement.dataset.theme || '', ...options});
+    theme: document.documentElement.dataset.theme || '', language: languageChoice(), ...options});
 }
 
 function buildChips(stems) {
@@ -158,16 +161,16 @@ function buildMixer(result) {
     name.className = 'track-name';
     const text = document.createElement('div');
     const level = document.createElement('small');
-    level.textContent = stem.silent ? 'silent' : `${stem.level > 0 ? '+' : ''}${stem.level.toFixed(1)} dB`;
-    level.title = 'Loudness compared with the whole song';
+    level.textContent = stem.silent ? t('silent') : `${stem.level > 0 ? '+' : ''}${stem.level.toFixed(1)} dB`;
+    level.title = t('Loudness compared with the whole song');
     text.append(label(stem.name), level);
     name.append(document.createElement('i'), text);
 
     const buttons = document.createElement('div');
     buttons.className = 'track-buttons';
     buttons.append(
-      toggleButton('S', 'solo', `Solo ${stem.name}`, pressed => { track.solo = pressed; }),
-      toggleButton('M', 'mute', `Mute ${stem.name}`, pressed => { track.mute = pressed; }));
+      toggleButton('S', 'solo', t('Solo {stem}', {stem: label(stem.name)}), pressed => { track.solo = pressed; }),
+      toggleButton('M', 'mute', t('Mute {stem}', {stem: label(stem.name)}), pressed => { track.mute = pressed; }));
 
     const wave = document.createElement('div');
     wave.className = 'wave';
@@ -177,7 +180,7 @@ function buildMixer(result) {
     if (stem.silent) {
       const badge = document.createElement('span');
       badge.className = 'silent-badge';
-      badge.textContent = 'SILENT';
+      badge.textContent = t('SILENT');
       wave.append(badge);
     }
     wave.addEventListener('click', event => {
@@ -187,7 +190,7 @@ function buildMixer(result) {
 
     const volume = document.createElement('input');
     volume.type = 'range'; volume.min = 0; volume.max = 1; volume.step = 0.01; volume.value = 1;
-    volume.setAttribute('aria-label', `${label(stem.name)} volume`);
+    volume.setAttribute('aria-label', t('{stem} volume', {stem: label(stem.name)}));
     volume.addEventListener('input', () => { track.volume = Number(volume.value); applyMix(); });
 
     row.append(name, buttons, wave, volume, audio);
@@ -205,8 +208,8 @@ function showMeta(result) {
     folder = saved === 'saved' ? `saved in ${folderFor.get(result.id) ?? ''}`
       : saved === 'saving' || saved === undefined ? 'saving to this PC…' : 'not saved on this PC';
   }
-  $('meta').textContent = `${clock(result.duration)} · ${result.stems.length} stems · ` +
-    `${MODEL_LABELS[result.model] ?? result.model} · separated in ${Math.round(result.seconds)} s · ${folder}`;
+  $('meta').textContent = t('{time} · {n} stems · {model} · separated in {s} s · {folder}', {time: clock(result.duration),
+    n: result.stems.length, model: MODEL_LABELS[result.model] ?? result.model, s: Math.round(result.seconds), folder});
 }
 
 function masterAudio() { return tracks.values().next().value?.audio ?? null; }
@@ -236,7 +239,7 @@ async function play() {
   try {
     await Promise.all([...tracks.values()].map(({audio}) => audio.play()));
   } catch (error) {
-    showError(`Could not play the stems: ${error.message}`);
+    showError(t('Could not play the stems: {error}', {error: error.message}));
     return;
   }
   playing = true;
@@ -273,15 +276,15 @@ const STATUS_TEXT = {waiting: 'Ready', queued: 'In the queue', failed: 'Failed'}
 const RENAMABLE = ['waiting', 'queued', 'done'];
 
 function songStatus(song) {
-  if (song.status === 'running') return song.message;
+  if (song.status === 'running') return tm(song.message);
   if (song.status === 'done') {
-    const text = `${song.stems} stems · ${song.seconds} s`;
+    const text = t('{n} stems · {s} s', {n: song.stems, s: song.seconds});
     const saved = saving.get(song.id);
     if (!remote || saved === 'saved') return text;
     return saved === 'saving' || saved === undefined ? `${text} · saving…` : `${text} · not saved`;
   }
-  if (song.status === 'waiting' && song.message === 'Cancelled') return 'Cancelled';
-  return STATUS_TEXT[song.status] ?? song.status;
+  if (song.status === 'waiting' && song.message === 'Cancelled') return t('Cancelled');
+  return t(STATUS_TEXT[song.status] ?? song.status);
 }
 
 // Type a new name over the title. Enter or leaving the field saves, Esc cancels,
@@ -295,7 +298,7 @@ function startRename(id) {
   editor.spellcheck = false;
   editor.autocomplete = 'off';
   editor.value = row.title.textContent;
-  editor.setAttribute('aria-label', 'Song name');
+  editor.setAttribute('aria-label', t('Song name'));
   row.endRename = save => {
     row.endRename = null;
     const name = editor.value.trim();
@@ -334,7 +337,7 @@ async function rename(id, name) {
         if (wave) wave.title = stem.file;
       }
     }
-    noticeToast.show(`Renamed to ${result.song}. The files have the new name.`);
+    noticeToast.show(t('Renamed to {name}. The files have the new name.', {name: result.song}));
   } catch {
     results.delete(id);
     if (shownId === id) shownId = null;
@@ -350,10 +353,10 @@ function renderWorking(song) {
   const STAGES = {'Starting': 'Preparing', 'Downloading audio from YouTube': 'Downloading from YouTube', 'Reading audio': 'Reading audio',
     'Loading the separation model': 'Loading model', 'Separating stems': 'Separating', 'Cancelling': 'Cancelling'};
   const raw = song.message.split('…')[0];
-  const stage = STAGES[raw] ?? raw;
+  const stage = STAGES[raw] ? t(STAGES[raw]) : tm(raw);
   const last = workLog.steps.at(-1);
   if (!last || last.text !== stage) {
-    if (last) { last.li.classList.add('ok'); last.li.querySelector('span:last-child').textContent = `${last.text} done`; }
+    if (last) { last.li.classList.add('ok'); last.li.querySelector('span:last-child').textContent = t('{step} done', {step: last.text}); }
     const li = document.createElement('li');
     const at = Math.round(state.elapsed ?? 0);
     li.innerHTML = `<span class="st" aria-hidden="true"></span><time>${clock(at)}</time><span></span>`;
@@ -364,11 +367,11 @@ function renderWorking(song) {
   }
   const determinate = /^(Separating|Writing)|\d+%$/.test(song.message);
   $('working-song').textContent = song.title;
-  $('working-title').textContent = song.message;
+  $('working-title').textContent = tm(song.message);
   $('working-percent').textContent = determinate ? `${Math.round(song.progress * 100)}%` : '';
   const pill = $('working-pill');
-  pill.textContent = /^Downloading/.test(stage) ? 'Downloading' : /^Loading/.test(stage) ? 'Loading model' : /^Writing/.test(stage) ? 'Writing' : /^Separating/.test(stage) ? 'Separating' : 'Working';
-  pill.style.setProperty('--c', /^Downloading|^Loading/.test(stage) ? 'var(--warn)' : 'var(--ink)');
+  pill.textContent = t(/^Downloading/.test(raw) ? 'Downloading' : /^Loading/.test(raw) ? 'Loading model' : /^Writing/.test(raw) ? 'Writing' : /^Separating/.test(raw) ? 'Separating' : 'Working');
+  pill.style.setProperty('--c', /^Downloading|^Loading/.test(raw) ? 'var(--warn)' : 'var(--ink)');
   workingProgress({fraction: song.progress, determinate});
 }
 
@@ -414,11 +417,11 @@ function renderSongs(songs) {
     const renamable = RENAMABLE.includes(song.status);
     if (!renamable) row.endRename?.(false);
     row.rename.hidden = !renamable;
-    row.rename.title = song.status === 'done' ? 'Rename the song and its files (or double-click the song)'
-      : 'Rename (or double-click the song)';
-    row.rename.setAttribute('aria-label', `Rename ${song.title}`);
+    row.rename.title = t(song.status === 'done' ? 'Rename the song and its files (or double-click the song)'
+      : 'Rename (or double-click the song)');
+    row.rename.setAttribute('aria-label', t('Rename {title}', {title: song.title}));
     row.remove.hidden = song.status === 'running';
-    row.remove.setAttribute('aria-label', `Remove ${song.title}`);
+    row.remove.setAttribute('aria-label', t('Remove {title}', {title: song.title}));
     row.bar.style.width = `${song.status === 'running' ? Math.round(song.progress * 100) : 0}%`;
   }
   $('song-sidebar').hidden = !songs.length;
@@ -459,7 +462,7 @@ function render() {
   $('device').textContent = state.device ?? '';
   const onCpu = typeof state.device === 'string' && state.device.startsWith('CPU');
   $('cpu-note').hidden = !onCpu;
-  if (onCpu) $('cpu-note').textContent = CPU_NOTE[controls.model.value] ?? '';
+  if (onCpu) $('cpu-note').textContent = t(CPU_NOTE[controls.model.value] ?? '');
   $('working-note').hidden = onCpu;
   $('working-note-cpu').hidden = !onCpu;
   renderSongs(songs);
@@ -477,13 +480,13 @@ function render() {
   $('add-source').disabled = requesting || !typed || Boolean(uploading);
   $('choose-file').disabled = requesting || Boolean(uploading);
   $('separate').disabled = requesting || !selected.size || !ready;
-  $('separate-label').textContent = ready > 1 ? `Separate ${ready} songs` : 'Separate stems';
+  $('separate-label').textContent = ready > 1 ? t('Separate {n} songs', {n: ready}) : t('Separate stems');
 
-  let status = state.message;
+  let status = tm(state.message);
   if (uploading) status = `Sending ${uploading.name} to ${server?.name ?? 'the server'}` +
     `${uploading.count > 1 ? ` (${uploading.index + 1} of ${uploading.count})` : ''}… ${Math.round(uploading.fraction * 100)}%`;
-  else if (failures >= 3) status = remote ? `Lost the connection to ${server?.name ?? 'the server'}.` : 'The processing engine stopped. Restart the app.';
-  else if (!busy && ready && !uploading) status = ready === 1 ? '1 song ready. Press Separate stems.' : `${ready} songs ready. Press Separate ${ready} songs.`;
+  else if (failures >= 3) status = remote ? `Lost the connection to ${server?.name ?? 'the server'}.` : t('The processing engine stopped. Restart the app.');
+  else if (!busy && ready && !uploading) status = ready === 1 ? t('1 song ready. Press Separate stems.') : t('{n} songs ready. Press Separate {n} songs.', {n: ready});
   $('status').textContent = status;
   $('status-dot').classList.toggle('busy', busy);
   $('progress').hidden = !busy;
@@ -507,17 +510,17 @@ function render() {
   $('pending').hidden = !song || song.status === 'running' || done;
   if (song?.status === 'running') renderWorking(song);
   if (song?.status === 'waiting') {
-    $('pending-title').textContent = song.message === 'Cancelled' ? 'Cancelled' : 'Ready to separate';
-    $('pending-note').textContent = 'Pick the stems you want, then press Separate.';
+    $('pending-title').textContent = t(song.message === 'Cancelled' ? 'Cancelled' : 'Ready to separate');
+    $('pending-note').textContent = t('Pick the stems you want, then press Separate.');
   } else if (song?.status === 'queued') {
-    $('pending-title').textContent = 'In the queue';
-    $('pending-note').textContent = 'It starts when the songs before it are finished.';
+    $('pending-title').textContent = t('In the queue');
+    $('pending-note').textContent = t('It starts when the songs before it are finished.');
   } else if (song?.status === 'failed') {
-    $('pending-title').textContent = 'This song could not be separated';
-    $('pending-note').textContent = song.error ?? '';
+    $('pending-title').textContent = t('This song could not be separated');
+    $('pending-note').textContent = tm(song.error ?? '');
   }
 
-  errorToast.show(localError);
+  errorToast.show(tm(localError));
 }
 
 async function command(action, values = {}) {
@@ -662,6 +665,17 @@ async function start() {
     });
   }
   if (THEMES.includes(preferences.theme)) applyTheme(preferences.theme);
+  // The language: saved, or Windows's. Changing it redraws every text on the page.
+  const savedLanguage = LANGUAGES.includes(preferences.language) ? preferences.language : '';
+  if (savedLanguage !== languageChoice()) setLanguage(savedLanguage);
+  controls.language = segmented($('language'), value => {
+    setLanguage(value === 'auto' ? '' : value);
+    savePreferences();
+    buildChips(state.stems);
+    shownId = null;  // the mixer is rebuilt with the stem names in the new language
+    render();
+  });
+  controls.language.value = savedLanguage || 'auto';
   themeToggle($('theme'), {themes: THEMES, get: currentTheme, set: theme => { applyTheme(theme); savePreferences(); }});
   errorToast = toaster($('error'), $('error-text'), $('dismiss-error'), {life: 0});
   // A newer version on the release page: the installed app installs it, a portable copy opens the page.
@@ -670,20 +684,20 @@ async function start() {
   const offerUpdate = info => {
     if (!info || update?.version === info.version) return;
     update = info;
-    $('update-go').textContent = info.portable ? 'Get it' : 'Install';
+    $('update-go').textContent = t(info.portable ? 'Get it' : 'Install');
     $('update-go').disabled = false;
-    updateToast.show(`UT Stems ${info.version} is available (you have ${info.current}).`);
+    updateToast.show(t('UT Stems {version} is available (you have {current}).', {version: info.version, current: info.current}));
   };
   $('update-go').addEventListener('click', async () => {
     if (!update) return;
     try {
       if (update.portable) { await api.openReleasePage(); return; }
       $('update-go').disabled = true;
-      $('update-go').textContent = 'Installing…';
+      $('update-go').textContent = t('Installing…');
       await api.installUpdate();
     } catch (error) {
       $('update-go').disabled = false;
-      $('update-go').textContent = 'Install';
+      $('update-go').textContent = t('Install');
       showError(cleanError(error));
     }
   });
@@ -710,7 +724,7 @@ async function start() {
     // In a plain browser there are no file dialogs; paths are typed instead.
     $('choose-file').hidden = true;
     $('choose-folder').hidden = true;
-    $('source').placeholder = 'Paste a YouTube link or a file path…';
+    $('source').placeholder = t('Paste a YouTube link or a file path…');
   }
 
   $('source').addEventListener('input', render);
@@ -769,5 +783,5 @@ async function start() {
 }
 
 start().catch(error => {
-  $('status').textContent = `Could not connect to the processing engine: ${error.message}`;
+  $('status').textContent = t('Could not connect to the processing engine: {error}', {error: error.message});
 });

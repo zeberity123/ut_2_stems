@@ -1,5 +1,5 @@
 // Screenshots of one theme in the Tauri debug build: empty, working and mixer states.
-//   node scripts/shot-theme.cjs miku      -> diagnostics/theme-miku-{empty,working,mixer}.png
+//   node scripts/shot-theme.cjs theme1    -> diagnostics/theme-theme1-{empty,working,mixer}.png
 const {chromium} = require('playwright');
 const {spawn, spawnSync, execFileSync} = require('node:child_process');
 const path = require('node:path');
@@ -7,7 +7,7 @@ const fs = require('node:fs');
 
 const root = path.resolve(__dirname, '..');
 const diagnostics = path.join(root, 'diagnostics');
-const theme = process.argv[2] || 'miku';
+const theme = process.argv[2] || 'theme1';
 const PORT = 9333;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -16,20 +16,23 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   if (!fs.existsSync(clip)) spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=12', '-f', 'lavfi',
     '-i', 'anoisesrc=d=12:c=pink:a=0.2', '-filter_complex', 'amix=inputs=2', '-ac', '2', '-ar', '44100', '-b:a', '192k', clip]);
   const exe = process.env.UT_STEMS_TEST_APP || path.join(root, 'src-tauri', 'target', 'debug', 'ut-stems.exe');
-  const app = spawn(exe, [], {cwd: root, stdio: 'ignore', env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`}});
+  const app = spawn(exe, [], {cwd: root, stdio: 'ignore', env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT} --lang=${process.env.UT_STEMS_TEST_LANG || "en-US"}`}});
   let browser;
   try {
     for (let i = 0; i < 200; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/json/version`)).ok) break; } catch {} await sleep(300); }
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
     await sleep(1500);
     const page = browser.contexts().flatMap(c => c.pages()).find(p => /^http:\/\/tauri\.localhost\/(index\.html)?$|^http:\/\/127\.0\.0\.1/.test(p.url()));
-    await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'), null, {timeout: 60000});
+    await page.waitForFunction(() => document.querySelector('#stem-chips')?.children.length > 0, null, {timeout: 60000});
     await page.evaluate(t => { document.documentElement.dataset.theme = t; document.querySelector('#theme').dataset.theme = t; }, theme);
     await page.locator('#output').fill(path.join(diagnostics, 'theme-output'));
     await page.locator('#output').dispatchEvent('change');
     await sleep(600);
     const shot = name => page.screenshot({path: path.join(diagnostics, `theme-${theme}-${name}.png`)});
     await shot('empty');
+    await page.evaluate(() => { document.querySelector('.sidebar-scroll').scrollTop = 1e6; });
+    await shot('panel');
+    await page.evaluate(() => { document.querySelector('.sidebar-scroll').scrollTop = 0; });
     await page.locator('#source').fill(clip);
     await page.locator('#add-source').click();
     await page.waitForFunction(() => document.querySelectorAll('.song-item').length === 1);

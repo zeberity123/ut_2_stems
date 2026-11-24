@@ -6,6 +6,7 @@
   "description": "Desktop app that splits a song (file or YouTube link) into stems.",
   "main": "src-tauri/tauri.conf.json",
   "author": "zeberity123",
+  "license": "MIT",
   "scripts": {
     "start": "tauri dev --no-dev-server --no-watch",
     "tauri": "tauri",

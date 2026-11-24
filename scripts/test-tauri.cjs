@@ -69,7 +69,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
     platforms: {'windows-x86_64': {signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHRlc3QK', url: `http://127.0.0.1:${UPDATE_PORT}/nothing.exe`}}}));
   const updates = spawn('python', ['-m', 'http.server', String(UPDATE_PORT), '--bind', '127.0.0.1'], {cwd: updateDir, stdio: 'ignore'});
   const app = spawn(exe, [], {cwd: root, stdio: 'ignore',
-    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
+    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT} --lang=en-US`,
       ...(real ? {} : {UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`, UT_STEMS_UPDATE_URL: `http://127.0.0.1:${UPDATE_PORT}/latest.json`})}});
   let browser;
   try {

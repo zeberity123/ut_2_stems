@@ -17,30 +17,31 @@
     <div class="header-actions">
       <span id="device" class="device-chip" hidden></span>
       <button id="server-chip" class="text-button" title="Disconnect from this server" hidden></button>
-      <button id="theme" class="icon-button theme-button" type="button" aria-label="Theme" title="Theme: light, dark, Miku or Miku in daylight">
+      <button id="theme" class="icon-button theme-button" type="button" aria-label="Theme" title="Theme: light, dark, 1 or 2" data-i18n-attr="title">
         <svg class="sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor"/><g stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></g></svg>
         <svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.8A5.6 5.6 0 0 1 6.2 2.5a5.6 5.6 0 1 0 7.3 7.3z" fill="currentColor"/></svg>
-        <svg class="miku" viewBox="0 0 16 16" aria-hidden="true"><text x="8" y="12" text-anchor="middle" font-family="Cascadia Mono, Consolas, monospace" font-size="10.5" font-weight="700" fill="currentColor">01</text></svg>
+        <svg class="one" viewBox="0 0 16 16" aria-hidden="true"><text x="8" y="12" text-anchor="middle" font-family="Cascadia Mono, Consolas, monospace" font-size="11" font-weight="700" fill="currentColor">1</text></svg>
+        <svg class="two" viewBox="0 0 16 16" aria-hidden="true"><text x="8" y="12" text-anchor="middle" font-family="Cascadia Mono, Consolas, monospace" font-size="11" font-weight="700" fill="currentColor">2</text></svg>
       </button>
     </div>
   </header>
   <main>
     <section class="workspace-layout" aria-label="Stem separation workspace">
       <aside id="song-sidebar" class="song-sidebar" hidden>
-        <div class="rail-heading"><h2>Queue <span id="song-count">0</span></h2><button id="clear-finished" class="text-button" hidden>Clear finished</button></div>
-        <div id="song-list" class="song-list" aria-label="Songs"></div>
+        <div class="rail-heading"><h2><span data-i18n>Queue</span> <span id="song-count">0</span></h2><button id="clear-finished" class="text-button" data-i18n hidden>Clear finished</button></div>
+        <div id="song-list" class="song-list" aria-label="Songs" data-i18n-attr="aria-label"></div>
       </aside>
       <div id="stage" class="stage">
         <!-- Drop zone, ported from Lucian UX/UI Prompt #432 (MIT) -->
         <div id="empty" class="dropzone-wrap ux">
-          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose audio files">
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Choose audio files" data-i18n-attr="aria-label">
             <div class="dz-idle">
               <span class="dz-arrow" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V5M7 9.5 12 4.5l5 5"/><path d="M5 15v2.5A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5V15"/></svg></span>
-              <b>Drop audio files here</b><b aria-hidden="true">Let go to add them</b>
-              <small>or <button type="button" class="dz-browse" tabindex="-1">choose files</button> · paste a YouTube link in the panel</small>
+              <b data-i18n>Drop audio files here</b><b aria-hidden="true" data-i18n>Let go to add them</b>
+              <small><span data-i18n>or</span> <button type="button" class="dz-browse" tabindex="-1" data-i18n>choose files</button> <span data-i18n>· paste a YouTube link in the panel</span></small>
             </div>
           </div>
-          <p class="dz-note">MP3 · WAV · FLAC · M4A · YouTube. Add as many songs as you like; they are separated one after another.</p>
+          <p class="dz-note" data-i18n>MP3 · WAV · FLAC · M4A · YouTube. Add as many songs as you like; they are separated one after another.</p>
         </div>
         <div id="pending" class="note-panel" hidden>
           <h2 id="pending-title"></h2>
@@ -49,124 +50,136 @@
         <!-- Progress panel, ported from Lucian UX/UI Prompt #083 (MIT) -->
         <div id="working" class="working ux" role="status" aria-live="polite" hidden>
           <div class="working-head">
-            <div class="working-title"><p class="section-label">Separating</p><h2 id="working-song"></h2></div>
-            <span id="working-pill" class="pill">Working</span>
+            <div class="working-title"><p class="section-label" data-i18n>Separating</p><h2 id="working-song"></h2></div>
+            <span id="working-pill" class="pill" data-i18n>Working</span>
           </div>
-          <div id="working-track" class="ptrack" role="progressbar" aria-label="Separation progress" aria-valuemin="0" aria-valuemax="100"><span class="seg a" aria-hidden="true"></span><span class="seg b" aria-hidden="true"></span><span class="fill" aria-hidden="true"></span></div>
+          <div id="working-track" class="ptrack" role="progressbar" aria-label="Separation progress" data-i18n-attr="aria-label" aria-valuemin="0" aria-valuemax="100"><span class="seg a" aria-hidden="true"></span><span class="seg b" aria-hidden="true"></span><span class="fill" aria-hidden="true"></span></div>
           <div class="working-meta"><span id="working-title"></span><span id="working-percent"></span></div>
-          <ol id="working-log" class="plog" aria-label="Steps"></ol>
-          <p id="working-note" class="help">A 4-minute song takes about a minute. The very first run also downloads the model (about 670 MB).</p>
-          <p id="working-note-cpu" class="help" hidden>No supported GPU was found, so this runs on the CPU and takes a while. You can keep using the PC in the meantime.</p>
+          <ol id="working-log" class="plog" aria-label="Steps" data-i18n-attr="aria-label"></ol>
+          <p id="working-note" class="help" data-i18n>A 4-minute song takes about a minute. The very first run also downloads the model (about 670 MB).</p>
+          <p id="working-note-cpu" class="help" data-i18n hidden>No supported GPU was found, so this runs on the CPU and takes a while. You can keep using the PC in the meantime.</p>
         </div>
         <div id="mixer" class="mixer ux" hidden>
           <div class="mixer-heading">
             <div class="mixer-title">
-              <p class="section-label">Separated</p>
+              <p class="section-label" data-i18n>Separated</p>
               <!-- Inline title editing, ported from Lucian UX/UI Prompt #033 (MIT) -->
               <div id="title-row" class="title-row">
-                <button id="song" class="title-view" type="button" aria-label="Rename the song"></button>
-                <button id="title-pen" class="title-pen" type="button" aria-label="Rename the song" tabindex="-1"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5l3 3L6 15H3v-3z"/></svg></button>
+                <button id="song" class="title-view" type="button" aria-label="Rename the song" data-i18n-attr="aria-label"></button>
+                <button id="title-pen" class="title-pen" type="button" aria-label="Rename the song" data-i18n-attr="aria-label" tabindex="-1"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M11.5 3.5l3 3L6 15H3v-3z"/></svg></button>
                 <div class="title-edit">
-                  <input id="title-input" class="title-input" type="text" aria-label="Song name" maxlength="180" spellcheck="false" autocomplete="off">
-                  <button class="title-act ok" type="button" aria-label="Save"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 9.5l3.2 3.2L14 5.5"/></svg></button>
-                  <button class="title-act no" type="button" aria-label="Cancel"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5 5l8 8M13 5l-8 8"/></svg></button>
+                  <input id="title-input" class="title-input" type="text" aria-label="Song name" data-i18n-attr="aria-label" maxlength="180" spellcheck="false" autocomplete="off">
+                  <button class="title-act ok" type="button" aria-label="Save" data-i18n-attr="aria-label"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 9.5l3.2 3.2L14 5.5"/></svg></button>
+                  <button class="title-act no" type="button" aria-label="Cancel" data-i18n-attr="aria-label"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5 5l8 8M13 5l-8 8"/></svg></button>
                   <span class="title-line" aria-hidden="true"></span>
                 </div>
               </div>
               <p id="meta" class="meta"></p>
             </div>
-            <button id="open-folder" class="ghost">Open folder <span aria-hidden="true">↗</span></button>
+            <button id="open-folder" class="ghost"><span data-i18n>Open folder</span> <span aria-hidden="true">↗</span></button>
           </div>
           <div class="transport">
             <!-- Play–pause morph, ported from Lucian UX/UI Prompt #007 (MIT) -->
-            <button id="play" class="play" type="button" aria-label="Play" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><polygon class="l"/><polygon class="r"/></svg></button>
+            <button id="play" class="play" type="button" aria-label="Play" data-i18n-attr="aria-label" aria-pressed="false"><svg viewBox="0 0 40 40" aria-hidden="true"><polygon class="l"/><polygon class="r"/></svg></button>
             <output id="current-time">0:00</output>
-            <input type="range" id="seek" min="0" max="1" step="0.01" value="0" aria-label="Song position">
+            <input type="range" id="seek" min="0" max="1" step="0.01" value="0" aria-label="Song position" data-i18n-attr="aria-label">
             <output id="duration">0:00</output>
           </div>
-          <div id="tracks" class="tracks" aria-label="Stems"></div>
-          <p class="help mixer-help">S plays one stem alone, M mutes it. Click a waveform to jump to that point.</p>
+          <div id="tracks" class="tracks" aria-label="Stems" data-i18n-attr="aria-label"></div>
+          <p class="help mixer-help" data-i18n>S plays one stem alone, M mutes it. Click a waveform to jump to that point.</p>
         </div>
-        <div id="drop-hint" class="drop-hint" hidden><span>Drop audio files to add them</span></div>
+        <div id="drop-hint" class="drop-hint" hidden><span data-i18n>Drop audio files to add them</span></div>
       </div>
       <aside class="sidebar ux">
         <div class="sidebar-scroll">
           <section class="control-section">
-            <p class="section-label">Source</p>
-            <label class="sr-only" for="source">YouTube link or audio file path</label>
-            <div class="button-row"><input id="source" type="text" placeholder="Paste a YouTube link…" autocomplete="off" spellcheck="false"><button id="add-source" class="fixed">Add</button></div>
-            <button id="choose-file" class="ghost full">Choose files…</button>
+            <p class="section-label" data-i18n>Source</p>
+            <label class="sr-only" for="source" data-i18n>YouTube link or audio file path</label>
+            <div class="button-row"><input id="source" type="text" placeholder="Paste a YouTube link…" data-i18n-attr="placeholder" autocomplete="off" spellcheck="false"><button id="add-source" class="fixed" data-i18n>Add</button></div>
+            <button id="choose-file" class="ghost full" data-i18n>Choose files…</button>
           </section>
           <section class="control-section">
-            <div class="section-heading"><p class="section-label">Stems</p><span class="chip-actions"><button id="stems-all" class="text-button">All</button><button id="stems-none" class="text-button">None</button></span></div>
+            <div class="section-heading"><p class="section-label" data-i18n>Stems</p><span class="chip-actions"><button id="stems-all" class="text-button" data-i18n>All</button><button id="stems-none" class="text-button" data-i18n>None</button></span></div>
             <!-- Checkbox rows, ported from Lucian UX/UI Prompt #433 (MIT) -->
-            <div id="stem-chips" class="checks" role="group" aria-label="Stems to write"></div>
-            <p class="help">Others collects everything that is not in a selected stem.</p>
+            <div id="stem-chips" class="checks" role="group" aria-label="Stems to write" data-i18n-attr="aria-label"></div>
+            <p class="help" data-i18n>Others collects everything that is not in a selected stem.</p>
           </section>
           <section class="control-section">
-            <p class="section-label">Output</p>
-            <label class="sr-only" for="output">Output folder</label>
-            <div class="button-row"><input id="output" type="text" spellcheck="false"><button id="choose-folder" class="fixed">Change</button></div>
-            <p class="section-label spaced">Format</p>
-            <div id="format" class="segmented" role="radiogroup" aria-label="Format" data-value="auto">
+            <p class="section-label" data-i18n>Output</p>
+            <label class="sr-only" for="output" data-i18n>Output folder</label>
+            <div class="button-row"><input id="output" type="text" spellcheck="false"><button id="choose-folder" class="fixed" data-i18n>Change</button></div>
+            <p class="section-label spaced" data-i18n>Format</p>
+            <div id="format" class="segmented" role="radiogroup" aria-label="Format" data-i18n-attr="aria-label" data-value="auto">
               <span class="thumb" aria-hidden="true"></span>
-              <button type="button" role="radio" data-value="auto" aria-checked="true">Auto<small>by the source</small></button>
+              <button type="button" role="radio" data-value="auto" aria-checked="true"><span data-i18n>Auto</span><small data-i18n>by the source</small></button>
               <button type="button" role="radio" data-value="mp3" aria-checked="false" tabindex="-1">MP3<small>320 kbps</small></button>
-              <button type="button" role="radio" data-value="wav" aria-checked="false" tabindex="-1">WAV<small>24-bit</small></button>
+              <button type="button" role="radio" data-value="wav" aria-checked="false" tabindex="-1">WAV<small data-i18n>24-bit</small></button>
             </div>
-            <p class="help">Files are written as <b>song_instrument.mp3</b> or <b>.wav</b>. Auto writes WAV for a WAV, FLAC or AIFF file and MP3 for everything else, including YouTube.</p>
+            <p class="help" data-i18n>Files are written as song_instrument.mp3 or .wav. Auto writes WAV for a WAV, FLAC or AIFF file and MP3 for everything else, including YouTube.</p>
           </section>
           <section class="control-section">
-            <p class="section-label">Model</p>
+            <p class="section-label" data-i18n>Model</p>
             <!-- Segmented control, ported from Lucian UX/UI Prompt #416 (MIT) -->
-            <div id="model" class="segmented" role="radiogroup" aria-label="Model" data-value="bs_roformer_sw">
+            <div id="model" class="segmented" role="radiogroup" aria-label="Model" data-i18n-attr="aria-label" data-value="bs_roformer_sw">
               <span class="thumb" aria-hidden="true"></span>
-              <button type="button" role="radio" data-value="bs_roformer_sw" aria-checked="true">BS-RoFormer<small>best quality</small></button>
-              <button type="button" role="radio" data-value="htdemucs_6s" aria-checked="false" tabindex="-1">HT-Demucs<small>faster</small></button>
+              <button type="button" role="radio" data-value="bs_roformer_sw" aria-checked="true">BS-RoFormer<small data-i18n>best quality</small></button>
+              <button type="button" role="radio" data-value="htdemucs_6s" aria-checked="false" tabindex="-1">HT-Demucs<small data-i18n>faster</small></button>
             </div>
             <p id="cpu-note" class="help cpu-note" hidden></p>
-            <p class="section-label spaced">Chunk blending</p>
-            <div id="overlap" class="segmented" role="radiogroup" aria-label="Chunk blending" data-value="2">
+            <p class="section-label spaced" data-i18n>Chunk blending</p>
+            <div id="overlap" class="segmented" role="radiogroup" aria-label="Chunk blending" data-i18n-attr="aria-label" data-value="2">
               <span class="thumb" aria-hidden="true"></span>
-              <button type="button" role="radio" data-value="2" aria-checked="true">Standard</button>
-              <button type="button" role="radio" data-value="4" aria-checked="false" tabindex="-1">Smoother<small>about 2× slower</small></button>
+              <button type="button" role="radio" data-value="2" aria-checked="true" data-i18n>Standard</button>
+              <button type="button" role="radio" data-value="4" aria-checked="false" tabindex="-1"><span data-i18n>Smoother</span><small data-i18n>about 2× slower</small></button>
             </div>
           </section>
           <section class="control-section">
-            <p class="section-label">Files</p>
+            <p class="section-label" data-i18n>Files</p>
             <!-- Switches, ported from Lucian UX/UI Prompt #433 (MIT) -->
-            <button id="auto-title" class="switch-row chip" type="button" role="switch" aria-checked="true" aria-pressed="true"><span class="switch-text"><b>Auto title</b><small>A YouTube song takes the video title unless you renamed it</small></span><span class="switch" aria-hidden="true"></span></button>
-            <button id="keep-original" class="switch-row chip" type="button" role="switch" aria-checked="true" aria-pressed="true"><span class="switch-text"><b>Keep original MP3</b><small>Keep the downloaded song next to the stems. Your own files are never deleted</small></span><span class="switch" aria-hidden="true"></span></button>
+            <button id="auto-title" class="switch-row chip" type="button" role="switch" aria-checked="true" aria-pressed="true"><span class="switch-text"><b data-i18n>Auto title</b><small data-i18n>A YouTube song takes the video title unless you renamed it</small></span><span class="switch" aria-hidden="true"></span></button>
+            <button id="keep-original" class="switch-row chip" type="button" role="switch" aria-checked="true" aria-pressed="true"><span class="switch-text"><b data-i18n>Keep original MP3</b><small data-i18n>Keep the downloaded song next to the stems. Your own files are never deleted</small></span><span class="switch" aria-hidden="true"></span></button>
+          </section>
+          <section class="control-section">
+            <p class="section-label" data-i18n>Language</p>
+            <div id="language" class="segmented compact" role="radiogroup" aria-label="Language" data-i18n-attr="aria-label" data-value="auto">
+              <span class="thumb" aria-hidden="true"></span>
+              <button type="button" role="radio" data-value="auto" aria-checked="true" data-i18n>Auto</button>
+              <button type="button" role="radio" data-value="en" aria-checked="false" tabindex="-1" lang="en">English</button>
+              <button type="button" role="radio" data-value="ja" aria-checked="false" tabindex="-1" lang="ja">日本語</button>
+              <button type="button" role="radio" data-value="ko" aria-checked="false" tabindex="-1" lang="ko">한국어</button>
+              <button type="button" role="radio" data-value="zh" aria-checked="false" tabindex="-1" lang="zh-CN">中文</button>
+            </div>
+            <p class="help" data-i18n>Follows the Windows display language when set to Auto.</p>
           </section>
         </div>
-        <div class="sidebar-footer"><button id="separate" class="primary full"><span id="separate-label">Separate stems</span><span class="arrow" aria-hidden="true">→</span></button></div>
+        <div class="sidebar-footer"><button id="separate" class="primary full"><span id="separate-label" data-i18n>Separate stems</span><span class="arrow" aria-hidden="true">→</span></button></div>
       </aside>
     </section>
   </main>
   <footer class="status-bar">
-    <span id="status-dot" class="status-dot"></span><span id="status" role="status">Connecting…</span>
-    <div id="progress-track" class="ptrack small" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" hidden><span class="seg a" aria-hidden="true"></span><span class="seg b" aria-hidden="true"></span><span class="fill" aria-hidden="true"></span></div>
+    <span id="status-dot" class="status-dot"></span><span id="status" role="status" data-i18n>Connecting…</span>
+    <div id="progress-track" class="ptrack small" role="progressbar" aria-label="Progress" data-i18n-attr="aria-label" aria-valuemin="0" aria-valuemax="100" hidden><span class="seg a" aria-hidden="true"></span><span class="seg b" aria-hidden="true"></span><span class="fill" aria-hidden="true"></span></div>
     <progress id="progress" max="1" value="0" hidden class="sr-only"></progress>
-    <button id="cancel" class="text-button" hidden>Cancel</button>
+    <button id="cancel" class="text-button" data-i18n hidden>Cancel</button>
     <span id="elapsed-time" hidden></span>
   </footer>
   <!-- Toast, ported from Lucian UX/UI Prompt #435 (MIT) -->
-  <section id="toasts" class="toasts ux" aria-label="Notifications">
+  <section id="toasts" class="toasts ux" aria-label="Notifications" data-i18n-attr="aria-label">
     <div id="error" class="toast error" role="alert" hidden>
       <span class="toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7v6M12 16.5v.5"/></svg></span>
       <span id="error-text" class="toast-text"></span>
-      <button id="dismiss-error" class="toast-x" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <button id="dismiss-error" class="toast-x" type="button" aria-label="Dismiss" data-i18n-attr="aria-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
     <div id="update" class="toast ok update-toast" role="status" hidden>
       <span class="toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v11M7 11.5l5 5 5-5"/></svg></span>
       <span id="update-text" class="toast-text"></span>
-      <button id="update-go" class="toast-go" type="button">Install</button>
-      <button id="dismiss-update" class="toast-x" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <button id="update-go" class="toast-go" type="button" data-i18n>Install</button>
+      <button id="dismiss-update" class="toast-x" type="button" aria-label="Dismiss" data-i18n-attr="aria-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
     <div id="notice" class="toast ok" role="status" hidden>
       <span class="toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12.5 4 4 8-9"/></svg></span>
       <span id="notice-text" class="toast-text"></span>
-      <button id="dismiss-notice" class="toast-x" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <button id="dismiss-notice" class="toast-x" type="button" aria-label="Dismiss" data-i18n-attr="aria-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       <span class="toast-bar" aria-hidden="true"><i></i></span>
     </div>
   </section>
