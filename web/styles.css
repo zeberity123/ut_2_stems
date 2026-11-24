@@ -58,107 +58,76 @@
   --vocals: #36D1C4; --bass: #6B9BFF; --drums: #FF9A5C; --guitars: #C3E35B; --piano: #C09BFF; --others: #9AA3AC;
   --wave-bg: #101117;
 }
-/* Miku: the one sanctioned exception to the monochrome rule. Soft and round: her teal and its
-   pale mint on a deep night teal, white type, one pink for what is live, the red "01" from her arm
-   numbering the sections, rounded cards that float on soft shadows, and two twin-tail shapes
-   resting in the stage's corners. Solid colours only; nothing glows. */
+/* Miku: the one sanctioned exception to the monochrome rule. No picture of her; her things instead:
+   the teal of her hair over its own darker shade, the red "01" on her arm (the sections are numbered
+   that way), the headphones with their pink light for what is live, the stripes of her sleeves on the
+   main button, the leek green and the skirt pink among the stems, and a faint digital grid. */
 :root[data-theme="miku"] {
   color-scheme: dark;
-  --page: #0D1716; --surface: #142321; --surface-2: #1A2E2C; --surface-3: #24403D;
-  --ink: #EEFBF9; --ink-2: rgba(238, 251, 249, .74); --ink-3: rgba(238, 251, 249, .5);
-  --line: rgba(57, 197, 187, .12); --line-2: rgba(57, 197, 187, .3);
-  --accent: #39C5BB; --accent-ink: #0B1C1A; --accent-soft: rgba(57, 197, 187, .16);
-  --mint: #39C5BB; --pale: #BDEFEA; --warn: #F2B35B; --danger: #F06FA0; --live: #F06FA0; --tattoo: #F0536A;
-  --shadow: rgba(0, 0, 0, .35); --shadow-strong: rgba(0, 0, 0, .6);
-  --vocals: #39C5BB; --bass: #6EA8FF; --drums: #F06FA0; --guitars: #B9E05A; --piano: #D6F6F2; --others: #94A9A6;
-  --wave-bg: #0F1B1A;
+  --page: #0B1413; --surface: #10201E; --surface-2: #142926; --surface-3: #1C3632;
+  --ink: #E6FBF9; --ink-2: rgba(230, 251, 249, .72); --ink-3: rgba(230, 251, 249, .48);
+  --line: rgba(57, 197, 187, .16); --line-2: rgba(57, 197, 187, .34);
+  --accent: #39C5BB; --accent-ink: #04201D; --accent-soft: rgba(57, 197, 187, .16);
+  --mint: #39C5BB; --warn: #FFB26B; --danger: #E12885; --live: #E12885; --tattoo: #E3242B;
+  --shadow: rgba(0, 10, 9, .6); --shadow-strong: rgba(0, 10, 9, .85);
+  --vocals: #39C5BB; --bass: #5BA8FF; --drums: #E12885; --guitars: #A6D83D; --piano: #BFF5F0; --others: #8FA7A4;
+  --wave-bg: #0A1715;
 }
-:root[data-theme="miku"] body { scrollbar-color: rgba(57, 197, 187, .35) transparent; }
-/* round everything */
-:root[data-theme="miku"] :is(.button-row > button, button.ghost, button.full, .mixer-heading > button, .icon-button, .status-bar .text-button) { border-radius: 999px; border-color: rgba(57, 197, 187, .25); background: var(--surface-2); }
-:root[data-theme="miku"] :is(.button-row > button, button.ghost, button.full, .mixer-heading > button, .icon-button):hover:not(:disabled) { border-color: var(--accent); background: var(--surface-3); }
-:root[data-theme="miku"] .text-button, :root[data-theme="miku"] .text-button:hover:not(:disabled) { border-color: transparent; background: transparent; color: var(--pale); }
-:root[data-theme="miku"] .text-button:hover:not(:disabled) { background: var(--accent-soft); }
-:root[data-theme="miku"] input:not([type=range]) { border-radius: 14px; border-color: rgba(57, 197, 187, .25); background: var(--surface); padding: 0 14px; }
-:root[data-theme="miku"] input:not([type=range]):focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-:root[data-theme="miku"] .segmented { border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-2); }
-:root[data-theme="miku"] .segmented .thumb { border-radius: 12px; background: var(--accent); box-shadow: none; }
-:root[data-theme="miku"] .segmented button { border-radius: 12px; }
-:root[data-theme="miku"] .segmented button[aria-checked=true] { color: var(--accent-ink); }
-:root[data-theme="miku"] .segmented button[aria-checked=true] small { color: rgba(11, 28, 26, .7); }
-:root[data-theme="miku"] .chip .box { border-radius: 8px; }
-:root[data-theme="miku"] .chip[aria-pressed=true] .box { background: var(--accent); box-shadow: inset 0 0 0 1.75px var(--accent); }
-:root[data-theme="miku"] .switch-row[aria-checked=true] .switch { background: var(--accent); }
-:root[data-theme="miku"] .switch::after { background: var(--pale); }
-:root[data-theme="miku"] .device-chip { border-radius: 999px; border-color: var(--line-2); color: var(--pale); }
-:root[data-theme="miku"] .icon-button { border-radius: 999px; }
-/* the header: her "01" as a little rounded tile, a soft teal rule */
-:root[data-theme="miku"] .app-header { border-bottom: 1px solid var(--line-2); }
+:root[data-theme="miku"] body {
+  scrollbar-color: rgba(57, 197, 187, .4) transparent;
+  background-image: linear-gradient(rgba(57, 197, 187, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(57, 197, 187, .05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+:root[data-theme="miku"] .app-header { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, var(--accent), rgba(57, 197, 187, .15) 55%, transparent) 1; }
+/* the brand mark becomes her "01" */
 :root[data-theme="miku"] .brand img { display: none; }
-:root[data-theme="miku"] .brand::before { content: "01"; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font: 700 11px/1 var(--mono); letter-spacing: 0; }
-:root[data-theme="miku"] .theme-button[data-theme="miku"] { color: var(--tattoo); border-color: rgba(240, 83, 106, .5); }
-/* the panels: labels in teal with a small rounded number, the first in red */
+:root[data-theme="miku"] .brand::before { content: "01"; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font: 700 10.5px/1 var(--mono); letter-spacing: 0; }
+:root[data-theme="miku"] .theme-button[data-theme="miku"] { color: var(--tattoo); border-color: color-mix(in srgb, var(--tattoo) 50%, transparent); }
+/* sections numbered like the tattoo: 01 in red, the rest in teal */
 :root[data-theme="miku"] .section-label, :root[data-theme="miku"] .rail-heading h2 { color: var(--accent); }
 :root[data-theme="miku"] .sidebar-scroll { counter-reset: part; }
 :root[data-theme="miku"] .control-section > .section-label:first-child::before,
 :root[data-theme="miku"] .control-section > .section-heading:first-child > .section-label::before {
-  counter-increment: part; content: counter(part, decimal-leading-zero); display: inline-block; margin-right: 8px; padding: 2px 7px;
-  border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-family: var(--mono); font-weight: 700; letter-spacing: 0;
+  counter-increment: part; content: counter(part, decimal-leading-zero); margin-right: 8px; padding: 1px 5px; border-radius: 4px;
+  font-family: var(--mono); font-weight: 700; letter-spacing: 0; color: var(--accent-ink); background: var(--accent);
 }
-:root[data-theme="miku"] .sidebar-scroll > .control-section:first-child > .section-label::before { background: rgba(240, 83, 106, .18); color: var(--tattoo); }
-:root[data-theme="miku"] .control-section { border-top-color: var(--line); }
-/* the queue: rounded rows */
-:root[data-theme="miku"] .song-list { padding: 8px; }
-:root[data-theme="miku"] .song-item { margin: 0 0 6px; border-radius: 14px; border-left: 0; background: var(--surface); }
-:root[data-theme="miku"] .song-item:hover { background: var(--surface-2); }
-:root[data-theme="miku"] .song-item.selected { background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--accent); }
-:root[data-theme="miku"] .song-main { padding-left: 14px; }
-:root[data-theme="miku"] .song-item > i { left: 14px; right: 14px; border-radius: 2px; }
-/* the stage: twin tails resting in the corners, a soft dashed drop zone */
+:root[data-theme="miku"] .sidebar-scroll > .control-section:first-child > .section-label::before { background: var(--tattoo); color: #fff; }
+/* twin-tail glows at the stage's feet, a digital room */
 :root[data-theme="miku"] .stage { isolation: isolate; }
-:root[data-theme="miku"] .stage::before, :root[data-theme="miku"] .stage::after {
-  content: ""; position: absolute; bottom: -300px; width: 110px; height: 520px; border-radius: 60px; z-index: -1;
-  background: var(--accent); opacity: .06; pointer-events: none;
+:root[data-theme="miku"] .stage::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(55% 45% at 0% 100%, rgba(57, 197, 187, .18), transparent 70%),
+              radial-gradient(55% 45% at 100% 100%, rgba(57, 197, 187, .13), transparent 70%),
+              radial-gradient(40% 30% at 50% 0%, rgba(225, 40, 133, .07), transparent 70%);
 }
-:root[data-theme="miku"] .stage::before { left: 28px; transform: rotate(10deg); }
-:root[data-theme="miku"] .stage::after { right: 28px; transform: rotate(-10deg); }
-:root[data-theme="miku"] .stage:has(> #mixer:not([hidden]))::before, :root[data-theme="miku"] .stage:has(> #mixer:not([hidden]))::after { display: none; }
-:root[data-theme="miku"] .dropzone { border-radius: 32px; background: rgba(57, 197, 187, .05); }
-:root[data-theme="miku"] .dropzone::before { border: 2px dashed rgba(57, 197, 187, .35); }
-:root[data-theme="miku"] .dropzone:hover::before { border-color: var(--accent); }
-:root[data-theme="miku"] .dz-arrow { border-radius: 22px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 24px -12px var(--shadow-strong); }
-:root[data-theme="miku"] .dz-browse { color: var(--pale); text-decoration-color: var(--accent); }
-:root[data-theme="miku"] .drop-hint { border-radius: 32px; border-color: var(--accent); }
-/* the mixer: floating cards, a round play button, a little note */
-:root[data-theme="miku"] .mixer-title .section-label::after { content: " ♪"; color: var(--pale); }
-:root[data-theme="miku"] .title-view:hover:not(:disabled) { background: var(--accent-soft); border-radius: 12px; }
-:root[data-theme="miku"] .play { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 24px -10px var(--shadow-strong); }
-:root[data-theme="miku"] .play:hover:not(:disabled) { background: #52D4CA; }
-:root[data-theme="miku"] .transport input[type=range]::-webkit-slider-runnable-track { background: var(--surface-3); border-radius: 3px; height: 6px; }
-:root[data-theme="miku"] .transport input[type=range]::-webkit-slider-thumb { background: var(--pale); box-shadow: 0 0 0 3px var(--page); width: 16px; height: 16px; margin-top: -5px; }
-:root[data-theme="miku"] .track { border-radius: 18px; background: var(--surface); box-shadow: 0 8px 20px -14px var(--shadow-strong), 0 0 0 1px var(--line); padding-left: 0; }
-:root[data-theme="miku"] .track-name i { width: 5px; height: 30px; border-radius: 0 4px 4px 0; }
-:root[data-theme="miku"] .track-buttons button { border-radius: 9px; background: var(--surface-2); border-color: transparent; }
-:root[data-theme="miku"] .track-buttons button[aria-pressed=true].solo { background: var(--accent); color: var(--accent-ink); }
+:root[data-theme="miku"] .dropzone::before { border-color: var(--line-2); }
+:root[data-theme="miku"] .dz-arrow { color: var(--accent); box-shadow: 0 0 0 1px var(--line-2), 0 0 28px rgba(57, 197, 187, .3); }
+/* the song title in her hair's gradient */
+:root[data-theme="miku"] .title-view, :root[data-theme="miku"] .working-title h2, :root[data-theme="miku"] .note-panel h2, :root[data-theme="miku"] .setup-panel h1 {
+  background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+:root[data-theme="miku"] .title-view:hover:not(:disabled) { background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; text-decoration: underline dotted var(--accent); text-underline-offset: 6px; }
+/* the main button wears her sleeve stripes */
+:root[data-theme="miku"] button.primary, :root[data-theme="miku"] button.primary:hover:not(:disabled) {
+  background: linear-gradient(104deg, var(--accent) 0 83%, var(--page) 83% 84.2%, var(--accent) 84.2% 87.2%, var(--page) 87.2% 88.4%, var(--accent) 88.4%);
+  border-color: var(--accent); color: var(--accent-ink);
+}
+:root[data-theme="miku"] button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* the play button is an ear cup: black, a teal ring, the pink light when it plays */
+:root[data-theme="miku"] .play { position: relative; background: var(--page); color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 8px 20px -10px var(--shadow-strong); }
+:root[data-theme="miku"] .play:hover:not(:disabled) { background: var(--surface); }
+:root[data-theme="miku"] .play::after { content: ""; position: absolute; right: 6px; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); opacity: .35; transition: opacity .3s; }
+:root[data-theme="miku"] .play[aria-pressed="true"]::after { opacity: 1; animation: pulse 1s infinite alternate; }
+/* what is live is pink: the running song, the status light, the playhead, a muted track */
+:root[data-theme="miku"] .song-item.selected { border-left-color: var(--accent); }
+:root[data-theme="miku"] .status-dot.busy, :root[data-theme="miku"] .song-item[data-status=running] small::before { background: var(--live); box-shadow: 0 0 8px var(--live); }
+:root[data-theme="miku"] .wave::after { background: var(--live); box-shadow: 0 0 6px var(--live); }
 :root[data-theme="miku"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
-:root[data-theme="miku"] .wave { border-radius: 10px; }
-:root[data-theme="miku"] .wave::after { background: var(--live); }
-:root[data-theme="miku"] .track input[type=range] { accent-color: var(--accent); }
-/* the main button: a teal pill */
-:root[data-theme="miku"] button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); border-radius: 999px; box-shadow: 0 12px 28px -14px var(--shadow-strong); }
-:root[data-theme="miku"] button.primary:hover:not(:disabled) { background: #52D4CA; border-color: #52D4CA; }
-/* pink for what is live; the work panel and toasts rounded */
-:root[data-theme="miku"] .status-dot.busy, :root[data-theme="miku"] .song-item[data-status=running] small::before { background: var(--live); }
+:root[data-theme="miku"] .track { box-shadow: 0 0 0 1px var(--line); }
 :root[data-theme="miku"] .pill { --c: var(--accent); }
-:root[data-theme="miku"] .ptrack { border-radius: 4px; }
 :root[data-theme="miku"] .ptrack .fill, :root[data-theme="miku"] .ptrack .seg { background: var(--accent); }
-:root[data-theme="miku"] .plog { border-radius: 18px; box-shadow: 0 8px 20px -14px var(--shadow-strong), 0 0 0 1px var(--line); }
 :root[data-theme="miku"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
-:root[data-theme="miku"] .toast { border-radius: 18px; box-shadow: 0 0 0 1px var(--line-2), 0 14px 30px -14px var(--shadow-strong); }
-:root[data-theme="miku"] .toast.error { box-shadow: 0 0 0 1px var(--live), 0 14px 30px -14px var(--shadow-strong); }
-:root[data-theme="miku"] .toast-go { border-radius: 999px; }
-:root[data-theme="miku"] .setup-facts { border-radius: 18px; }
-:root[data-theme="miku"] .local-label { color: var(--pale); }
+:root[data-theme="miku"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--page); }
 
 /* Lucian tokens, pointed at the theme above (porting guide §1). */
 :root {
