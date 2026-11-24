@@ -97,7 +97,7 @@ if (Want 'tauri') {
   @{ version = $version; notes = "UT Stems $version"; pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
      platforms = @{ 'windows-x86_64' = @{ signature = (Get-Content $signature.FullName -Raw).Trim()
        url = "https://github.com/zeberity123/ut_2_stems/releases/download/v$version/UT-Stems-$version-win64-setup.exe" } } } |
-    ConvertTo-Json -Depth 5 | Set-Content (Join-Path $dist 'latest.json') -Encoding utf8
+    ConvertTo-Json -Depth 5 | ForEach-Object { [IO.File]::WriteAllText((Join-Path $dist 'latest.json'), $_, [Text.UTF8Encoding]::new($false)) }  # no BOM
   $setup = Get-ChildItem (Join-Path $root 'src-tauri\target\release\bundle\nsis') -Filter '*-setup.exe' | Sort-Object LastWriteTime | Select-Object -Last 1
   if (-not $setup) { throw 'Tauri produced no installer' }
   $target = Join-Path $dist "UT-Stems-$version-win64-setup.exe"
