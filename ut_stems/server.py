@@ -130,7 +130,7 @@ class Workspace:
             return {
                 "id": song.id, "song": r.song, "folder": str(r.folder) if owner is None else "",
                 "duration": round(r.duration, 1), "seconds": round(r.seconds, 1), "model": r.model,
-                "original": original,
+                "original": original, "format": r.format,
                 "stems": [{"name": s.name, "file": s.path.name, "level": s.level_db,
                            "silent": s.level_db < -60, "peaks": s.peaks} for s in r.stems],
             }
@@ -313,7 +313,10 @@ class Workspace:
         overlap = int(data.get("overlap") or 2)
         if overlap not in (2, 3, 4):
             raise ValueError("Overlap must be 2, 3 or 4.")
-        settings = {"stems": stems, "model": model, "overlap": overlap,
+        fmt = data.get("format") or "auto"
+        if fmt not in ("auto", "mp3", "wav"):
+            raise ValueError("Format must be auto, mp3 or wav.")
+        settings = {"stems": stems, "model": model, "overlap": overlap, "format": fmt,
                     "out_dir": Path(str(data.get("output") or self.default_output)),
                     "auto_title": data.get("autoTitle", True) is not False,
                     "keep_original": data.get("keepOriginal", True) is not False}
@@ -471,12 +474,12 @@ class Handler(BaseHTTPRequestHandler):
                 path = workspace.stem_path(song_id, (query.get("stem") or [""])[0], owner)
                 if path is None or not path.is_file():
                     return self.respond(404, {"error": "That stem is not available."})
-                return self.send_file(path, "audio/mpeg")
+                return self.send_file(path, "audio/wav" if path.suffix.lower() == ".wav" else "audio/mpeg")
             if url.path == "/api/file":
                 path = workspace.file_path(song_id, (query.get("name") or [""])[0], owner)
                 if path is None or not path.is_file():
                     return self.respond(404, {"error": "That file is not available."})
-                return self.send_file(path, "audio/mpeg", download=True)
+                return self.send_file(path, "audio/wav" if path.suffix.lower() == ".wav" else "audio/mpeg", download=True)
             return self.respond(404, {"error": "Not found."})
         name = "index.html" if url.path == "/" else url.path.lstrip("/")
         target = (WEB / name).resolve()

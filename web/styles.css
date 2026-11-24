@@ -58,6 +58,27 @@
   --vocals: #36D1C4; --bass: #6B9BFF; --drums: #FF9A5C; --guitars: #C3E35B; --piano: #C09BFF; --others: #9AA3AC;
   --wave-bg: #101117;
 }
+/* Miku: a test theme. Black, the teal of her hair (#39C5BB) as the accent, the red of her
+   headphones for what is live — the one sanctioned exception to the monochrome rule. */
+:root[data-theme="miku"] {
+  color-scheme: dark;
+  --page: #0A0B0B; --surface: #121515; --surface-2: #181C1C; --surface-3: #222828;
+  --ink: #E8F6F5; --ink-2: rgba(232, 246, 245, .7); --ink-3: rgba(232, 246, 245, .45);
+  --line: rgba(57, 197, 187, .14); --line-2: rgba(57, 197, 187, .3);
+  --accent: #39C5BB; --accent-ink: #061C1A; --accent-soft: rgba(57, 197, 187, .14);
+  --mint: #39C5BB; --warn: #FFB26B; --danger: #E12838; --live: #E12838;
+  --shadow: rgba(0, 0, 0, .5); --shadow-strong: rgba(0, 0, 0, .8);
+  --vocals: #39C5BB; --bass: #5E8CF0; --drums: #E12838; --guitars: #BFD96A; --piano: #C09BFF; --others: #8F9C9B;
+  --wave-bg: #0D1111;
+}
+:root[data-theme="miku"] .brand img { filter: hue-rotate(0deg); }
+:root[data-theme="miku"] .section-label, :root[data-theme="miku"] .rail-heading h2 { color: var(--accent); opacity: .85; }
+:root[data-theme="miku"] .song-item.selected { border-left-color: var(--accent); }
+:root[data-theme="miku"] .status-dot.busy, :root[data-theme="miku"] .song-item[data-status=running] small::before { background: var(--live); }
+:root[data-theme="miku"] .wave::after { background: var(--live); }
+:root[data-theme="miku"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
+:root[data-theme="miku"] .pill { --c: var(--accent); }
+
 /* Lucian tokens, pointed at the theme above (porting guide §1). */
 :root {
   --ux-page: var(--page); --ux-surface: var(--surface); --ux-surface-2: var(--surface-2); --ux-surface-3: var(--surface-3);
@@ -130,10 +151,9 @@ input[type=range] { accent-color: var(--accent); cursor: pointer; min-width: 0; 
 .device-chip { font-size: 11px; color: var(--ink-2); padding: 0 9px; height: 26px; display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; white-space: nowrap; }
 .theme-button { position: relative; color: var(--ink); }
 .theme-button svg { grid-area: 1 / 1; width: 15px; height: 15px; transition: transform .6s cubic-bezier(.3, 1.4, .5, 1), opacity .25s; }
-.theme-button .moon { opacity: 0; transform: rotate(90deg) scale(.6); }
-:root[data-theme="light"] .theme-button .sun, :root:not([data-theme]) .theme-button .sun { opacity: 1; }
-.theme-button[aria-pressed="true"] .sun { opacity: 0; transform: rotate(-90deg) scale(.6); }
-.theme-button[aria-pressed="true"] .moon { opacity: 1; transform: none; }
+.theme-button svg { opacity: 0; transform: rotate(90deg) scale(.6); }
+.theme-button[data-theme="light"] .sun, .theme-button[data-theme="dark"] .moon, .theme-button[data-theme="miku"] .miku { opacity: 1; transform: none; }
+.theme-button[data-theme="miku"] { color: var(--accent); }
 /* #219: the new theme spreads out in a circle from the button, here through the View Transitions API. */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { animation: theme-reveal .7s cubic-bezier(.65, 0, .35, 1); }
@@ -385,6 +405,8 @@ input.song-rename-input { position: absolute; left: 8px; top: 8px; width: calc(1
 .toast-x { flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; display: grid; place-items: center; background: none; color: var(--ink-3); }
 .toast-x:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); border: 0; }
 .toast-x svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.toast-go { flex: none; height: 30px; padding: 0 12px; border: 0; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: 12.5px; font-weight: 650; }
+.toast-go:hover:not(:disabled) { background: var(--accent); border: 0; }
 .toast-bar { position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px; border-radius: 2px; overflow: hidden; }
 .toast-bar i { display: block; height: 100%; border-radius: inherit; background: var(--mint); opacity: .75; transform-origin: 0 50%; animation: toast-bar 4.5s linear forwards; }
 .toast:hover .toast-bar i { animation-play-state: paused; }

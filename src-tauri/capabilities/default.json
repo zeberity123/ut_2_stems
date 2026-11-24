@@ -13,6 +13,10 @@
     "allow-engine-status",
     "allow-choose-engine-file",
     "allow-cancel-engine-install",
-    "allow-install-engine"
+    "allow-install-engine",
+    "allow-check-update",
+    "allow-pending-update",
+    "allow-install-update",
+    "allow-open-release-page"
   ]
 }

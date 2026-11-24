@@ -4,6 +4,8 @@
 //
 //   node scripts/test-tauri.cjs                       (src-tauri/target/debug/ut-stems.exe)
 //   set UT_STEMS_TEST_APP=<path to UT Stems.exe>      (an installed or release build instead)
+//   The debug build should be compiled with TAURI_CONFIG={"plugins":{"updater":{"dangerousInsecureTransportProtocol":true}}}
+//   so the update check can use the local server; release builds only accept https.
 const {chromium} = require('playwright');
 const {spawn, spawnSync, execFileSync} = require('node:child_process');
 const path = require('node:path');
@@ -15,6 +17,7 @@ const diagnostics = path.join(root, 'diagnostics');
 const output = path.join(diagnostics, 'tauri-output');
 const PORT = 9333;
 const FILES_PORT = 9334;
+const UPDATE_PORT = 9335;
 const VERSION = require('../package.json').version;
 
 function engines() {
@@ -58,9 +61,16 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
     assert.ok(fs.existsSync(archive) && fs.existsSync(archive + '.sha256'), `${archive} and its .sha256 exist (build.ps1 -Stage engine)`);
     files = spawn('python', ['-m', 'http.server', String(FILES_PORT), '--bind', '127.0.0.1'], {cwd: path.join(root, 'dist'), stdio: 'ignore'});
   }
+  // A release page claiming version 99.0.0: the app must offer it (the debug build is compiled with
+  // TAURI_CONFIG allowing http for this; see the header).
+  const updateDir = path.join(diagnostics, 'update-test');
+  fs.mkdirSync(updateDir, {recursive: true});
+  fs.writeFileSync(path.join(updateDir, 'latest.json'), JSON.stringify({version: '99.0.0', notes: 'test', pub_date: '2026-01-01T00:00:00Z',
+    platforms: {'windows-x86_64': {signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHRlc3QK', url: `http://127.0.0.1:${UPDATE_PORT}/nothing.exe`}}}));
+  const updates = spawn('python', ['-m', 'http.server', String(UPDATE_PORT), '--bind', '127.0.0.1'], {cwd: updateDir, stdio: 'ignore'});
   const app = spawn(exe, [], {cwd: root, stdio: 'ignore',
     env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
-      ...(real ? {} : {UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`})}});
+      ...(real ? {} : {UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`, UT_STEMS_UPDATE_URL: `http://127.0.0.1:${UPDATE_PORT}/latest.json`})}});
   let browser;
   try {
     await waitFor(() => fetch(`http://127.0.0.1:${PORT}/json/version`).then(r => r.ok), {timeout: 60000, what: 'the window'});
@@ -89,6 +99,12 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
 
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'), null, {timeout: 60000});
     assert.ok(await page.evaluate(() => Boolean(window.desktop?.tauri)), 'The Tauri bridge is in place');
+    if (!real) {
+      await page.waitForFunction(() => !document.querySelector('#update').hidden, null, {timeout: 30000});
+      assert.match(await page.locator('#update-text').textContent(), /99\.0\.0/, 'The update toast names the version');
+      await screenshot('update');
+      await page.locator('#dismiss-update').click();
+    }
     assert.equal(await page.evaluate(() => window.desktop.pathForFile(new File([''], 'x.mp3'))), '');
     await screenshot('empty');
 
@@ -151,6 +167,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
     if (browser) await browser.close().catch(() => {});
     if (app.exitCode === null && app.signalCode === null) app.kill();
     if (files) files.kill();
+    updates.kill();
     for (const pid of engines()) { if (!before.includes(pid)) spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], {stdio: 'ignore'}); }
   }
 })();

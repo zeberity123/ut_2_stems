@@ -18,7 +18,9 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter, Manager};
 
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The engine archives this app needs: the version of the `ut_stems` Python package they were built
+/// from. It only moves when the engine changes, so an app update need not mean a 1.7 GB download.
+pub const ENGINE_VERSION: &str = "0.6.0";
 pub const EDITIONS: [&str; 3] = ["cuda", "xpu", "cpu"];
 const DEFAULT_BASE: &str = "https://github.com/zeberity123/ut_2_stems/releases/download/v{version}/";
 #[cfg(windows)]
@@ -83,11 +85,11 @@ pub struct Progress {
 }
 
 pub fn archive_name(edition: &str) -> String {
-    format!("UT-Stems-{VERSION}-engine-{edition}.7z")
+    format!("UT-Stems-{ENGINE_VERSION}-engine-{edition}.7z")
 }
 
 pub fn base_url() -> String {
-    std::env::var("UT_STEMS_ENGINE_BASE").unwrap_or_else(|_| DEFAULT_BASE.replace("{version}", VERSION))
+    std::env::var("UT_STEMS_ENGINE_BASE").unwrap_or_else(|_| DEFAULT_BASE.replace("{version}", ENGINE_VERSION))
 }
 
 /// `engine\` next to the executable, which is where the installer's uninstaller looks for it.
@@ -147,9 +149,9 @@ pub fn status() -> Status {
     let suggested = installed.as_ref().filter(|m| EDITIONS.contains(&m.edition.as_str()))
         .map(|m| m.edition.clone()).unwrap_or_else(|| suggest(&graphics).to_string());
     Status {
-        needs_update: installed.as_ref().map(|m| m.version != VERSION).unwrap_or(false),
+        needs_update: installed.as_ref().map(|m| m.version != ENGINE_VERSION).unwrap_or(false),
         installed,
-        app_version: VERSION.into(),
+        app_version: ENGINE_VERSION.into(),
         nearby: nearby(&suggested).map(|p| p.to_string_lossy().into_owned()),
         suggested,
         graphics,
@@ -295,7 +297,7 @@ pub fn install(app: &AppHandle, edition: &str, file: Option<PathBuf>, cancel: Ar
             .find(|p| p.join("ut-stems-engine.exe").is_file())
             .ok_or("The archive does not contain the engine (ut-stems-engine.exe).")?
     };
-    let manifest = Manifest { version: VERSION.into(), edition: edition.into() };
+    let manifest = Manifest { version: ENGINE_VERSION.into(), edition: edition.into() };
     fs::write(root.join("engine.json"), serde_json::to_vec_pretty(&manifest).unwrap()).map_err(|e| e.to_string())?;
     let _ = fs::remove_dir_all(&dir);
     fs::rename(&root, &dir).map_err(|e| format!("Cannot move the engine into place: {e}"))?;

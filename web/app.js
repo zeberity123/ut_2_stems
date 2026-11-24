@@ -48,8 +48,9 @@ function currentTheme() {
   if (set) return set;
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
+const THEMES = ['light', 'dark', 'miku'];
 function applyTheme(theme) {
-  if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+  if (THEMES.includes(theme)) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
   try { if (theme) localStorage.setItem('ut-stems-theme', theme); else localStorage.removeItem('ut-stems-theme'); } catch {}
   tracks.forEach(drawWave);
@@ -60,7 +61,8 @@ function stemList() { return (state?.stems ?? []).filter(stem => selected.has(st
 
 function savePreferences() {
   api.savePreferences({stems: stemList(), output: $('output').value.trim(),
-    model: controls.model.value, overlap: controls.overlap.value, theme: document.documentElement.dataset.theme || '', ...options});
+    model: controls.model.value, overlap: controls.overlap.value, format: controls.format.value,
+    theme: document.documentElement.dataset.theme || '', ...options});
 }
 
 function buildChips(stems) {
@@ -625,7 +627,7 @@ async function separate() {
   follow = true;
   for (const song of state.songs) if (song.status === 'waiting') folderFor.set(song.id, $('output').value.trim());
   await command('start', {stems: stemList(), output: $('output').value.trim(),
-    model: controls.model.value, overlap: Number(controls.overlap.value), ...options});
+    model: controls.model.value, overlap: Number(controls.overlap.value), format: controls.format.value, ...options});
 }
 
 // ---------------------------------------------------------------- start
@@ -639,13 +641,14 @@ async function start() {
     server = await api.serverInfo();
     $('server-chip').hidden = false;
     $('server-chip').textContent = `on ${server.name} ✕`;
-    document.querySelector('.local-label').textContent = `RUNS ON ${server.name.toUpperCase()}`;
     $('server-chip').addEventListener('click', () => api.forgetServer());
     api.onUploadProgress(progress => { if (progress) { uploading = progress; render(); } });
   }
   $('output').value = preferences.output || (remote ? server.defaultOutput : state.defaultOutput);
   controls.model = segmented($('model'), () => { savePreferences(); render(); });
   controls.overlap = segmented($('overlap'), savePreferences);
+  controls.format = segmented($('format'), savePreferences);
+  if (['auto', 'mp3', 'wav'].includes(preferences.format)) controls.format.value = preferences.format;
   if (state.models.includes(preferences.model)) controls.model.value = preferences.model;
   if (['2', '4'].includes(preferences.overlap)) controls.overlap.value = preferences.overlap;
   for (const option of Object.keys(options)) {
@@ -657,9 +660,34 @@ async function start() {
       render();
     });
   }
-  if (preferences.theme === 'dark' || preferences.theme === 'light') applyTheme(preferences.theme);
-  themeToggle($('theme'), {get: () => currentTheme() === 'dark', set: dark => { applyTheme(dark ? 'dark' : 'light'); savePreferences(); }});
+  if (THEMES.includes(preferences.theme)) applyTheme(preferences.theme);
+  themeToggle($('theme'), {themes: THEMES, get: currentTheme, set: theme => { applyTheme(theme); savePreferences(); }});
   errorToast = toaster($('error'), $('error-text'), $('dismiss-error'), {life: 0});
+  // A newer version on the release page: the installed app installs it, a portable copy opens the page.
+  const updateToast = toaster($('update'), $('update-text'), $('dismiss-update'), {life: 0});
+  let update = null;
+  const offerUpdate = info => {
+    if (!info || update?.version === info.version) return;
+    update = info;
+    $('update-go').textContent = info.portable ? 'Get it' : 'Install';
+    $('update-go').disabled = false;
+    updateToast.show(`UT Stems ${info.version} is available (you have ${info.current}).`);
+  };
+  $('update-go').addEventListener('click', async () => {
+    if (!update) return;
+    try {
+      if (update.portable) { await api.openReleasePage(); return; }
+      $('update-go').disabled = true;
+      $('update-go').textContent = 'Installing…';
+      await api.installUpdate();
+    } catch (error) {
+      $('update-go').disabled = false;
+      $('update-go').textContent = 'Install';
+      showError(cleanError(error));
+    }
+  });
+  api.onUpdate(offerUpdate);
+  api.pendingUpdate().then(offerUpdate).catch(() => {});
   noticeToast = toaster($('notice'), $('notice-text'), $('dismiss-notice'));
   statusProgress = progressTrack($('progress-track'));
   workingProgress = progressTrack($('working-track'));

@@ -82,7 +82,22 @@ if (Want 'tauri') {
   Write-Host '== Installer with Tauri (the engine is downloaded by the app on first start)'
   $cargo = Join-Path $env:USERPROFILE '.cargo\bin'
   if (Test-Path $cargo) { $env:PATH = "$cargo;$env:PATH" }
+  # The installer is signed with the updater key so installed copies can update themselves.
+  $key = Join-Path $env:USERPROFILE '.tauri\ut-stems.key'
+  if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+    if (Test-Path $key) { $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content $key -Raw).Trim(); $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = '' }
+    else { throw "The updater signing key is missing at $key; without it installed copies cannot update" }
+  }
   Run 'npx.cmd' @('tauri', 'build', '--bundles', 'nsis')
+  $nsis = Join-Path $root 'src-tauri\target\release\bundle\nsis'
+  $signature = Get-ChildItem $nsis -Filter '*-setup.exe.sig' | Sort-Object LastWriteTime | Select-Object -Last 1
+  if (-not $signature) { throw 'Tauri produced no signature; is createUpdaterArtifacts on?' }
+  Copy-Item $signature.FullName (Join-Path $dist "UT-Stems-$version-win64-setup.exe.sig") -Force
+  # latest.json is what installed copies poll: version, where the installer is, and its signature.
+  @{ version = $version; notes = "UT Stems $version"; pub_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+     platforms = @{ 'windows-x86_64' = @{ signature = (Get-Content $signature.FullName -Raw).Trim()
+       url = "https://github.com/zeberity123/ut_2_stems/releases/download/v$version/UT-Stems-$version-win64-setup.exe" } } } |
+    ConvertTo-Json -Depth 5 | Set-Content (Join-Path $dist 'latest.json') -Encoding utf8
   $setup = Get-ChildItem (Join-Path $root 'src-tauri\target\release\bundle\nsis') -Filter '*-setup.exe' | Sort-Object LastWriteTime | Select-Object -Last 1
   if (-not $setup) { throw 'Tauri produced no installer' }
   $target = Join-Path $dist "UT-Stems-$version-win64-setup.exe"
@@ -90,6 +105,12 @@ if (Want 'tauri') {
   '{0}  {1}' -f (Get-FileHash $target -Algorithm SHA256).Hash.ToLower(), (Split-Path $target -Leaf) |
     Set-Content (Join-Path $dist "UT-Stems-$version-win64-setup.sha256") -Encoding ascii
   Write-Host ('   {0}: {1:N1} MB' -f (Split-Path $target -Leaf), ((Get-Item $target).Length / 1MB))
+  # The same program without the installer: run it from any folder you can write to.
+  $portable = Join-Path $dist "UT-Stems-$version-win64-portable.exe"
+  Copy-Item (Join-Path $root 'src-tauri\target\release\ut-stems.exe') $portable -Force
+  '{0}  {1}' -f (Get-FileHash $portable -Algorithm SHA256).Hash.ToLower(), (Split-Path $portable -Leaf) |
+    Set-Content (Join-Path $dist "UT-Stems-$version-win64-portable.sha256") -Encoding ascii
+  Write-Host ('   {0}: {1:N1} MB' -f (Split-Path $portable -Leaf), ((Get-Item $portable).Length / 1MB))
 }
 
 if (Want 'electron') {

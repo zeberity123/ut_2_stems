@@ -105,18 +105,23 @@ const assert = require('node:assert/strict');
     await page.locator('#keep-original').click();
     assert.equal(await page.locator('#keep-original').getAttribute('aria-checked'), 'false');
     await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.keepOriginal === false));
+    // The theme button steps through light, dark and Miku; each is remembered.
     const theme = () => page.evaluate(() => document.documentElement.dataset.theme || 'system');
-    await page.locator('#theme').click();
-    await page.waitForTimeout(900);
-    const first = await theme();
-    assert.ok(['dark', 'light'].includes(first), 'The theme button picks a theme');
-    await screenshot(`ready-${first}`);
-    await page.locator('#theme').click();
-    await page.waitForTimeout(900);
-    const second = await theme();
-    assert.notEqual(first, second, 'The theme button switches back');
-    await page.waitForFunction(value => window.desktop.getPreferences().then(saved => saved.theme === value), second);
-    await screenshot(`ready-${second}`);
+    const seen = [];
+    for (let i = 0; i < 3; i++) {
+      await page.locator('#theme').click();
+      await page.waitForTimeout(900);
+      const current = await theme();
+      await page.waitForFunction(value => window.desktop.getPreferences().then(saved => saved.theme === value), current);
+      await screenshot(`ready-${current}`);
+      seen.push(current);
+    }
+    assert.deepEqual([...seen].sort(), ['dark', 'light', 'miku'], `Three themes: ${seen}`);
+    // Output format: a segmented choice that is remembered.
+    await page.locator('#format [data-value="wav"]').click();
+    await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.format === 'wav'));
+    await page.locator('#format [data-value="auto"]').click();
+    await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.format === 'auto'));
     // HT-Demucs is a segmented choice, with the keyboard too.
     await page.locator('#model [data-value="htdemucs_6s"]').click();
     await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.model === 'htdemucs_6s'));

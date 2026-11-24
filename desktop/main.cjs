@@ -79,9 +79,10 @@ async function start() {
       output: typeof values?.output === 'string' ? values.output.slice(0, 1000) : '',
       model: typeof values?.model === 'string' ? values.model.slice(0, 60) : '',
       overlap: typeof values?.overlap === 'string' ? values.overlap.slice(0, 4) : '',
+      format: ['auto', 'mp3', 'wav'].includes(values?.format) ? values.format : '',
       autoTitle: values?.autoTitle !== false,
       keepOriginal: values?.keepOriginal !== false,
-      theme: ['dark', 'light'].includes(values?.theme) ? values.theme : '',
+      theme: ['dark', 'light', 'miku'].includes(values?.theme) ? values.theme : '',
     };
     const temporary = preferencesPath + '.tmp';
     try { fs.writeFileSync(temporary, JSON.stringify(next), 'utf8'); fs.renameSync(temporary, preferencesPath); preferences = next; }

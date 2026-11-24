@@ -22,8 +22,12 @@ use std::time::Duration;
 
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_updater::UpdaterExt;
+
+const RELEASES_URL: &str = "https://github.com/zeberity123/ut_2_stems/releases/latest";
 
 const AUDIO_EXTENSIONS: [&str; 8] = ["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus", "wma"];
 #[cfg(windows)]
@@ -36,6 +40,90 @@ struct Shell {
     /// The engine's origin once it runs; the window may only navigate there or to its own pages.
     origin: Mutex<Option<String>>,
     installing: Mutex<Option<Arc<AtomicBool>>>,
+    /// A newer version found on the release page, until it is installed.
+    update: Mutex<Option<tauri_plugin_updater::Update>>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfo {
+    version: String,
+    current: String,
+    notes: Option<String>,
+    /// Running without the installer: the app cannot replace itself, only point at the download.
+    portable: bool,
+}
+
+fn portable() -> bool {
+    std::env::current_exe().ok().and_then(|exe| exe.parent().map(|dir| !dir.join("uninstall.exe").is_file())).unwrap_or(true)
+}
+
+// ---------------------------------------------------------------- updates from the GitHub release
+/// Asks the release page for a newer version. `UT_STEMS_UPDATE_URL` points a test at another page.
+async fn find_update(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let mut builder = app.updater_builder();
+    if let Ok(url) = std::env::var("UT_STEMS_UPDATE_URL") {
+        builder = builder.endpoints(vec![url.parse().map_err(|e| format!("{e}"))?]).map_err(|e| e.to_string())?;
+    }
+    let updater = builder.build().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let info = UpdateInfo { version: update.version.clone(), current: update.current_version.clone(),
+                                    notes: update.body.clone(), portable: portable() };
+            *app.state::<Shell>().update.lock().unwrap() = Some(update);
+            Ok(Some(info))
+        }
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    find_update(&app).await
+}
+
+/// The update found at start, for a page that loaded after the check ran.
+#[tauri::command]
+fn pending_update(shell: State<Shell>) -> Option<UpdateInfo> {
+    shell.update.lock().unwrap().as_ref().map(|update| UpdateInfo {
+        version: update.version.clone(), current: update.current_version.clone(),
+        notes: update.body.clone(), portable: portable(),
+    })
+}
+
+/// Downloads the signed installer and runs it; the installer closes this app and starts the new one.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    let update = app.state::<Shell>().update.lock().unwrap().clone().ok_or("No update is waiting.")?;
+    if portable() { return Err("This copy runs without the installer; download the new version from the release page.".into()); }
+    stop_engine(&app.state::<Shell>());
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|e| format!("The update could not be installed: {e}"))?;
+    app.restart();
+}
+
+#[tauri::command]
+fn open_release_page(app: AppHandle) -> Result<(), String> {
+    app.opener().open_url(RELEASES_URL, None::<&str>).map_err(|e| e.to_string())
+}
+
+/// A little after the window is up, look for a newer version and tell the page.
+fn check_for_update_later(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        tokio_sleep(Duration::from_secs(4)).await;
+        match find_update(&app).await {
+            Ok(Some(info)) => { let _ = app.emit("update-available", info); }
+            Ok(None) => {}
+            Err(e) => engine::app_data_log(&app, &format!("update check: {e}")),
+        }
+    });
+}
+
+async fn tokio_sleep(duration: Duration) {
+    let (sender, receiver) = tauri::async_runtime::channel::<()>(1);
+    std::thread::spawn(move || { std::thread::sleep(duration); let _ = sender.blocking_send(()); });
+    let mut receiver = receiver;
+    let _ = receiver.recv().await;
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -48,12 +136,13 @@ struct Preferences {
     auto_title: bool,
     keep_original: bool,
     theme: String,
+    format: String,
 }
 
 impl Default for Preferences {
     fn default() -> Self {
         Self { stems: vec![], output: String::new(), model: String::new(), overlap: String::new(),
-               auto_title: true, keep_original: true, theme: String::new() }
+               auto_title: true, keep_original: true, theme: String::new(), format: String::new() }
     }
 }
 
@@ -79,6 +168,7 @@ fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), Stri
     let string = |key: &str, max: usize| values.get(key).and_then(|v| v.as_str()).map(|s| truncate(s, max)).unwrap_or_default();
     let flag = |key: &str| values.get(key).and_then(|v| v.as_bool()).unwrap_or(true);
     let theme = string("theme", 8);
+    let format = string("format", 4);
     let next = Preferences {
         stems: values.get("stems").and_then(|v| v.as_array()).map(|list| {
             list.iter().filter_map(|v| v.as_str()).map(|s| truncate(s, 40)).take(12).collect()
@@ -88,7 +178,8 @@ fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), Stri
         overlap: string("overlap", 4),
         auto_title: flag("autoTitle"),
         keep_original: flag("keepOriginal"),
-        theme: if theme == "dark" || theme == "light" { theme } else { String::new() },
+        theme: if ["dark", "light", "miku"].contains(&theme.as_str()) { theme } else { String::new() },
+        format: if ["auto", "mp3", "wav"].contains(&format.as_str()) { format } else { String::new() },
     };
     let path = preferences_path(&app).ok_or("no settings folder")?;
     if let Some(dir) = path.parent() { fs::create_dir_all(dir).map_err(|e| e.to_string())?; }
@@ -304,6 +395,11 @@ const BRIDGE: &str = r#"
     chooseFolder: current => invoke('choose_folder', {current: current || null}),
     pathForFile: () => '',
     onDrop: listener => { dropListeners.push(listener); },
+    pendingUpdate: () => invoke('pending_update'),
+    checkUpdate: () => invoke('check_update'),
+    installUpdate: () => invoke('install_update'),
+    openReleasePage: () => invoke('open_release_page'),
+    onUpdate: listener => { T.event.listen('update-available', event => listener(event.payload)); },
   };
   T.webview.getCurrentWebview().onDragDropEvent(event => { for (const listener of dropListeners) listener(event.payload); });
 })();
@@ -311,7 +407,11 @@ const BRIDGE: &str = r#"
 
 fn open_window(app: &AppHandle, url: WebviewUrl) -> tauri::Result<()> {
     let theme = get_preferences(app.clone()).theme;
-    let background = if theme == "light" { tauri::window::Color(0xF4, 0xF2, 0xEE, 255) } else { tauri::window::Color(0x0B, 0x0C, 0x10, 255) };
+    let background = match theme.as_str() {
+        "light" => tauri::window::Color(0xF4, 0xF2, 0xEE, 255),
+        "miku" => tauri::window::Color(0x0A, 0x0B, 0x0B, 255),
+        _ => tauri::window::Color(0x0B, 0x0C, 0x10, 255),
+    };
     let guard = app.clone();
     WebviewWindowBuilder::new(app, "main", url)
         .title("UT Stems")
@@ -346,16 +446,20 @@ pub fn run() {
     let token: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
         }))
-        .manage(Shell { engine: Mutex::new(None), token, origin: Mutex::new(None), installing: Mutex::new(None) })
+        .manage(Shell { engine: Mutex::new(None), token, origin: Mutex::new(None), installing: Mutex::new(None), update: Mutex::new(None) })
         .invoke_handler(tauri::generate_handler![
             get_preferences, set_preferences, choose_files, choose_folder,
-            engine_status, choose_engine_file, cancel_engine_install, install_engine
+            engine_status, choose_engine_file, cancel_engine_install, install_engine,
+            check_update, pending_update, install_update, open_release_page
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -363,7 +467,7 @@ pub fn run() {
             std::thread::spawn(move || {
                 let needs_setup = match find_engine() {
                     EngineKind::Missing => true,
-                    EngineKind::Installed(dir) => engine::installed(&dir).map(|m| m.version != engine::VERSION).unwrap_or(true),
+                    EngineKind::Installed(dir) => engine::installed(&dir).map(|m| m.version != engine::ENGINE_VERSION).unwrap_or(true),
                     EngineKind::Source(_) => false,
                 };
                 let page = if needs_setup {
@@ -372,7 +476,7 @@ pub fn run() {
                     start_engine(&handle).map(|port| WebviewUrl::External(engine_url(&handle, port)))
                 };
                 match page {
-                    Ok(url) => if let Err(e) = open_window(&handle, url) { fail(&handle, &format!("Could not open the window: {e}")); },
+                    Ok(url) => if let Err(e) = open_window(&handle, url) { fail(&handle, &format!("Could not open the window: {e}")); } else { check_for_update_later(handle.clone()); },
                     Err(detail) => fail(&handle, &detail),
                 }
             });

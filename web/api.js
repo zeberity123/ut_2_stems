@@ -33,6 +33,11 @@ export class StemsAPI {
   onDrop(listener) { if (this.desktop?.onDrop) { this.desktop.onDrop(listener); return true; } return false; }
   async preferences() { return (await this.desktop?.getPreferences()) ?? {}; }
   savePreferences(values) { return this.desktop?.setPreferences(values); }
+  // Updates (Tauri shell only)
+  pendingUpdate() { return this.desktop?.pendingUpdate ? this.desktop.pendingUpdate() : Promise.resolve(null); }
+  onUpdate(listener) { this.desktop?.onUpdate?.(listener); }
+  installUpdate() { return this.desktop.installUpdate(); }
+  openReleasePage() { return this.desktop.openReleasePage(); }
   // UT Stems Client only
   serverInfo() { return this.desktop.serverInfo(); }
   forgetServer() { return this.desktop.forgetServer(); }

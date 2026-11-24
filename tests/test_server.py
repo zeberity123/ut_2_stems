@@ -98,6 +98,7 @@ def test_start_validates_settings(server, tmp_path):
     assert "Unknown stems" in command(server, "start", stems=["kazoo"])[1]["error"]
     assert "Unknown model" in command(server, "start", model="magic")[1]["error"]
     assert "Overlap" in command(server, "start", overlap=9)[1]["error"]
+    assert "Format" in command(server, "start", format="ogg")[1]["error"]
     state = json.loads(call(server, "/api/state")[1])
     assert state["songs"][0]["status"] == "waiting" and state["busy"] is False
 
@@ -161,18 +162,18 @@ def test_rename(server, tmp_path, monkeypatch):
 
     def fake_run(source, name=None, **settings):
         names[source] = name
-        options[source] = (settings["auto_title"], settings["keep_original"])
+        options[source] = (settings["auto_title"], settings["keep_original"], settings["format"])
         raise RuntimeError("stop here")
 
     monkeypatch.setattr("ut_stems.pipeline.run", fake_run)
     command(server, "add", sources=[str(audio_file(tmp_path, "d.mp3"))])
-    command(server, "start", stems=["vocals"], keepOriginal=False)
+    command(server, "start", stems=["vocals"], keepOriginal=False, format="wav")
     for _ in range(200):
         if not json.loads(call(server, "/api/state")[1])["busy"]:
             break
         time.sleep(0.05)
     assert names == {first.source: "AC_DC_ _Live_", str(tmp_path / "d.mp3"): None}
-    assert set(options.values()) == {(True, False)}  # auto title is on unless switched off
+    assert set(options.values()) == {(True, False, "wav")}  # auto title is on unless switched off
 
 
 def finished_song(tmp_path, workspace, song_id=7, original=True):
@@ -256,6 +257,7 @@ def test_results_and_audio_streaming(server, tmp_path):
     state = json.loads(call(server, "/api/state")[1])
     assert state["songs"][0] == {"id": 7, "title": "song", "status": "done", "message": "", "progress": 0.0,
                                  "error": None, "stems": 1, "seconds": 1}
+    assert json.loads(call(server, "/api/result?id=7")[1])["format"] == "mp3"
     assert "peaks" not in json.dumps(state)  # waveforms are only sent on request
 
     status, body, _ = call(server, "/api/result?id=7")
@@ -281,3 +283,10 @@ def test_results_and_audio_streaming(server, tmp_path):
     assert call(server, "/api/audio?id=7&stem=vocals", token=None)[0] == 403
     # the players cannot send headers, so the token is also accepted in the query string
     assert call(server, "/api/audio?id=7&stem=vocals&token=test-token", token=None)[0] == 200
+
+    # WAV stems are served as WAV
+    wav = tmp_path / "song_drums.wav"
+    wav.write_bytes(b"RIFF")
+    result.stems.append(StemFile("drums", wav, -6.0, [0.5]))
+    status, body, headers = call(server, "/api/audio?id=7&stem=drums")
+    assert status == 200 and body == b"RIFF" and headers["Content-Type"] == "audio/wav"

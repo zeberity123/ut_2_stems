@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from ut_stems import STEMS, Cancelled
-from ut_stems.audio import SR, AudioError, decode, encode_mp3
+from ut_stems.audio import SR, AudioError, decode, encode_mp3, encode_wav, output_format
 from ut_stems.cli import main as cli_main
 from ut_stems.pipeline import run
 from ut_stems.youtube import is_url, sanitize_filename
@@ -28,6 +28,26 @@ def test_mp3_round_trip(tmp_path):
     n = min(decoded.shape[1], original.shape[1])
     correlation = np.corrcoef(decoded[0, :n], original[0, :n])[0, 1]
     assert correlation > 0.99
+
+
+def test_wav_round_trip_is_lossless_enough(tmp_path):
+    original = tone(1.0)
+    path = tmp_path / "tone.wav"
+    encode_wav(original, path)
+    decoded = decode(path)
+    assert decoded.shape == original.shape
+    assert float(np.abs(decoded - original).max()) < 1e-4  # 24-bit PCM, no codec
+
+
+def test_output_format_keeps_lossless_files_lossless(tmp_path):
+    assert output_format("auto", tmp_path / "song.flac", downloaded=False) == "wav"
+    assert output_format("auto", tmp_path / "song.WAV", downloaded=False) == "wav"
+    assert output_format("auto", tmp_path / "song.mp3", downloaded=False) == "mp3"
+    assert output_format("auto", tmp_path / "song.wav", downloaded=True) == "mp3"  # a YouTube download
+    assert output_format("wav", tmp_path / "song.mp3", downloaded=True) == "wav"
+    assert output_format("mp3", tmp_path / "song.flac", downloaded=False) == "mp3"
+    with pytest.raises(ValueError):
+        output_format("ogg", tmp_path / "song.wav", downloaded=False)
 
 
 def test_decode_rejects_non_audio(tmp_path):

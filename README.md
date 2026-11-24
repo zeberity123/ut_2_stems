@@ -28,7 +28,8 @@ installer for every PC and, next to it, the processing engine as one archive per
 
 | File | What it is | Size |
 |---|---|---|
-| `UT-Stems-<version>-win64-setup.exe` | the app; installs for the current user, no administrator rights | about 2 MB |
+| `UT-Stems-<version>-win64-setup.exe` | the app; installs for the current user, no administrator rights, updates itself | about 4 MB |
+| `UT-Stems-<version>-win64-portable.exe` | the same app without an installer: run it from any folder you can write to | about 6 MB |
 | `UT-Stems-<version>-engine-cuda.7z` | engine for PCs with an NVIDIA GPU (GTX 10 series or newer, current driver) | about 1.7 GB |
 | `UT-Stems-<version>-engine-xpu.7z` | engine for PCs with an Intel GPU: Arc A/B series, or the Arc graphics in Core Ultra laptops | about 1.2 GB |
 | `UT-Stems-<version>-engine-cpu.7z` | engine for everything else (no GPU, or an AMD GPU) | about 200 MB |
@@ -46,6 +47,11 @@ for any PC; the others are just smaller. The engine lives in `engine\` next to t
 (`%LOCALAPPDATA%\UT Stems`) and is removed with it when the app is uninstalled.
 
 The command line is in the same folder: `engine\ut-stems.exe "song.mp3" -o D:\stems`.
+
+**Updates.** The installed app checks the release page when it starts and offers a newer version;
+**Install** downloads it, verifies its signature and runs the installer, which restarts the app. The
+engine is kept unless the new version needs a new one. The portable exe cannot replace itself; it
+shows the notice with a link to the release page instead.
 
 **GPU or CPU.** Nothing besides the graphics driver needs to be installed: the CUDA edition carries
 the CUDA runtime and the XPU edition carries Intel's oneAPI runtime. The header shows which device is
@@ -109,6 +115,12 @@ Double-click `run.bat`. It opens the Tauri window if it has been built (`cargo b
 3. Choose the output folder and press **Separate stems**.
 
 When it finishes, the stems open in the mixer and **Open folder** shows the files.
+
+**Format.** *Auto* writes 24-bit WAV stems for a lossless file (WAV, FLAC, AIFF) and 320 kbps MP3
+stems for everything else, YouTube included; *MP3* and *WAV* force one or the other.
+
+**Theme.** The button at the top right steps through light, dark and *Miku* (black, the teal
+`#39c5bb`, red for what is live). Without a choice the app follows Windows.
 
 To separate several songs, add them one by one with **Add** (or Enter), or pick several files at
 once. They appear in the **Songs** list on the left and nothing starts until you press
@@ -190,6 +202,7 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | `--stems` | comma-separated stems to write | all six |
 | `--model` | `bs_roformer_sw` or `htdemucs_6s` | `bs_roformer_sw` |
 | `--overlap` | `2`, `3` or `4`; higher is slower and slightly smoother | `2` |
+| `--format` | `auto`, `mp3` or `wav`; auto keeps lossless files lossless | `auto` |
 | `--bitrate` | MP3 bitrate | `320k` |
 | `--device` | `auto`, `cuda` (NVIDIA), `xpu` (Intel GPU) or `cpu` | `auto` |
 

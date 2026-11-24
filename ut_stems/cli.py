@@ -34,6 +34,8 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
                     help=f"separation model (default: {DEFAULT_MODEL})")
     ap.add_argument("--overlap", type=int, default=2, choices=[2, 3, 4],
                     help="chunk overlap factor; higher is slower and slightly smoother (default: 2)")
+    ap.add_argument("--format", choices=["auto", "mp3", "wav"], default="auto",
+                    help="stems as MP3 or 24-bit WAV; auto keeps lossless files (WAV, FLAC, AIFF) lossless (default: auto)")
     ap.add_argument("--bitrate", default="320k", help="MP3 bitrate (default: 320k)")
     ap.add_argument("--device", choices=["auto", "cuda", "xpu", "cpu"], default="auto",
                     help="where to run the model: an NVIDIA GPU (cuda), an Intel GPU (xpu) or the CPU "
@@ -72,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
             result = run(source, args.out, stems=args.stems, model=args.model, overlap=args.overlap,
-                         bitrate=args.bitrate, device=args.device, report=report)
+                         bitrate=args.bitrate, device=args.device, report=report, format=args.format)
         except (AudioError, RuntimeError, ValueError, OSError) as e:
             # One bad song does not stop the rest of the list.
             print(f"error: {e}", file=sys.stderr)

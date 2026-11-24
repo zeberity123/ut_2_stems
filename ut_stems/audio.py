@@ -61,12 +61,45 @@ def decode(path: Path) -> np.ndarray:
     return audio
 
 
-def encode_mp3(audio: np.ndarray, path: Path, bitrate: str = "320k") -> None:
-    """Write (2, samples) float32 audio as a constant-bitrate MP3."""
+LOSSLESS = {".wav", ".wave", ".flac", ".aif", ".aiff", ".aifc", ".ape", ".wv", ".tta"}
+FORMATS = ("auto", "mp3", "wav")
+
+
+def output_format(choice: str, source: Path | None, downloaded: bool) -> str:
+    """``mp3`` or ``wav`` for the stems. ``auto`` keeps lossless files lossless: a WAV, FLAC or
+    AIFF file gives WAV stems; a YouTube download or an MP3 gives MP3 stems."""
+    if choice not in FORMATS:
+        raise ValueError(f"Unknown format: {choice}")
+    if choice != "auto":
+        return choice
+    if downloaded or source is None:
+        return "mp3"
+    return "wav" if source.suffix.lower() in LOSSLESS else "mp3"
+
+
+def _encode(audio: np.ndarray, path: Path, codec: list[str]) -> None:
     pcm = np.clip(audio, -1.0, 1.0).T.astype(np.float32).tobytes()
     cmd = [_ffmpeg(), "-v", "error", "-y", "-f", "f32le", "-ac", "2", "-ar", str(SR),
-           "-i", "-", "-c:a", "libmp3lame", "-b:a", bitrate, str(path)]
+           "-i", "-", *codec, str(path)]
     proc = subprocess.run(cmd, input=pcm, capture_output=True)
     if proc.returncode != 0:
         detail = proc.stderr.decode("utf-8", errors="replace").strip()
         raise AudioError(f"ffmpeg could not write {path.name}: {detail}")
+
+
+def encode_mp3(audio: np.ndarray, path: Path, bitrate: str = "320k") -> None:
+    """Write (2, samples) float32 audio as a constant-bitrate MP3."""
+    _encode(audio, path, ["-c:a", "libmp3lame", "-b:a", bitrate])
+
+
+def encode_wav(audio: np.ndarray, path: Path) -> None:
+    """Write (2, samples) float32 audio as a 24-bit PCM WAV."""
+    _encode(audio, path, ["-c:a", "pcm_s24le"])
+
+
+def encode(audio: np.ndarray, path: Path, bitrate: str = "320k") -> None:
+    """Write the audio in the format the file name asks for (``.wav`` or ``.mp3``)."""
+    if path.suffix.lower() == ".wav":
+        encode_wav(audio, path)
+    else:
+        encode_mp3(audio, path, bitrate)

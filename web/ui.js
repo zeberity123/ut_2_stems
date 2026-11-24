@@ -144,12 +144,13 @@ export function toaster(element, text, dismiss, {life = 4500} = {}) {
   return {show, hide};
 }
 
-/* #219 Circular-reveal dark mode: the new theme spreads out in a circle from the button. */
-export function themeToggle(button, {get, set}) {
+/* #219 Circular-reveal dark mode: the new theme spreads out in a circle from the button.
+   The button steps through the themes in order. */
+export function themeToggle(button, {themes, get, set}) {
+  const next = () => themes[(themes.indexOf(get()) + 1) % themes.length];
   function reflect() {
-    const dark = get();
-    button.setAttribute('aria-pressed', String(dark));
-    button.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    button.dataset.theme = get();
+    button.setAttribute('aria-label', `Theme: ${get()}. Switch to ${next()}`);
   }
   button.addEventListener('click', () => {
     const box = button.getBoundingClientRect();
@@ -158,7 +159,7 @@ export function themeToggle(button, {get, set}) {
     root.style.setProperty('--theme-x', `${x}px`);
     root.style.setProperty('--theme-y', `${y}px`);
     root.style.setProperty('--theme-r', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`);
-    const apply = () => { set(!get()); reflect(); };
+    const apply = () => { set(next()); reflect(); };
     if (document.startViewTransition && !reducedMotion()) document.startViewTransition(apply); else apply();
   });
   reflect();

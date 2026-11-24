@@ -1,4 +1,4 @@
-"""The whole job: file or YouTube link in, ``<songname>_<instrument>.mp3`` files out."""
+"""The whole job: file or YouTube link in, ``<songname>_<instrument>.mp3`` (or ``.wav``) files out."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Callable
 import numpy as np
 
 from . import DEFAULT_MODEL, MODEL_NAMES, STEMS, Cancelled
-from .audio import SR, decode, encode_mp3
+from .audio import SR, decode, encode, output_format
 from .youtube import download_mp3, is_url, sanitize_filename
 
 Report = Callable[[str, float], None]
@@ -37,6 +37,7 @@ class Result:
     model: str
     stems: list[StemFile]
     original: Path | None = None  # the downloaded song MP3, if it was kept
+    format: str = "mp3"  # what the stems are: mp3 or wav
 
 
 def _peaks(audio: np.ndarray, scale: float) -> list[float]:
@@ -54,7 +55,7 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
         cancel: threading.Event | None = None,
         on_song: Callable[[str], None] | None = None,
         name: str | None = None, auto_title: bool = True,
-        keep_original: bool = True) -> Result:
+        keep_original: bool = True, format: str = "auto") -> Result:
     """Separate one song and write the selected stems as MP3 files into ``out_dir``.
 
     ``on_song`` is called with the song name as soon as it is known: for a YouTube
@@ -63,7 +64,10 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
     that are written. Without a name, ``auto_title=False`` names a YouTube song
     after its video id instead of its title. ``keep_original=False`` deletes the
     downloaded song MP3 once the stems are written; a local file is never deleted.
+    ``format`` is ``mp3``, ``wav`` (24-bit) or ``auto``: WAV stems for a lossless file, MP3 otherwise.
     """
+    if format not in ("auto", "mp3", "wav"):
+        raise ValueError(f"Unknown format: {format}")
     if stems is None:
         stems = list(STEMS)
     if set(stems) - set(STEMS):
@@ -96,9 +100,10 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
     song = sanitize_filename(name) if name else path.stem
     if on_song is not None:
         on_song(song)
+    ext = output_format(format, path, downloaded)
     try:
         files, duration = _separate(path, song, out_dir, wanted, model, overlap, bitrate,
-                                    device, report, cancel, base)
+                                    device, report, cancel, base, ext)
     except BaseException:
         if downloaded and not keep_original:
             path.unlink(missing_ok=True)
@@ -108,12 +113,12 @@ def run(source: str, out_dir: Path, stems: list[str] | None = None, model: str =
         original.unlink(missing_ok=True)
         original = None
     return Result(song=song, source=path, folder=out_dir, duration=duration,
-                  seconds=time.time() - started, model=model, stems=files, original=original)
+                  seconds=time.time() - started, model=model, stems=files, original=original, format=ext)
 
 
 def _separate(path: Path, song: str, out_dir: Path, wanted: list[str], model: str, overlap: int,
               bitrate: str, device: str, report: Report, cancel: threading.Event | None,
-              base: float) -> tuple[list[StemFile], float]:
+              base: float, ext: str = "mp3") -> tuple[list[StemFile], float]:
     def check():
         if cancel is not None and cancel.is_set():
             raise Cancelled()
@@ -142,8 +147,8 @@ def _separate(path: Path, song: str, out_dir: Path, wanted: list[str], model: st
     for index, (name, audio) in enumerate(kept.items()):
         check()
         report(f"Writing {name}…", 0.9 + 0.1 * index / len(kept))
-        target = out_dir / f"{song}_{name}.mp3"
-        encode_mp3(audio, target, bitrate=bitrate)
+        target = out_dir / f"{song}_{name}.{ext}"
+        encode(audio, target, bitrate=bitrate)
         level = 10 * np.log10(max(float(np.mean(audio ** 2)), 1e-12) / mix_power)
         files.append(StemFile(name, target, round(float(level), 1), _peaks(audio, mix_peak)))
     return files, duration
@@ -162,16 +167,16 @@ def _move(source: Path, target: Path) -> None:
 
 
 def rename_result(result: Result, name: str) -> None:
-    """Rename the files of a finished song to ``<name>_<instrument>.mp3`` (and ``<name>.mp3``).
+    """Rename the files of a finished song to ``<name>_<instrument>.<ext>`` (and ``<name>.mp3``).
 
     Either every file is renamed or, if one cannot be, none are.
     """
     song = sanitize_filename(name)
-    moves = [(stem.path, stem.path.with_name(f"{song}_{stem.name}.mp3")) for stem in result.stems]
+    moves = [(stem.path, stem.path.with_name(f"{song}_{stem.name}{stem.path.suffix}")) for stem in result.stems]
     # The downloaded song MP3 is renamed along, unless it has been deleted meanwhile.
     original = result.original if result.original is not None and result.original.is_file() else None
     if original is not None:
-        moves.append((original, original.with_name(f"{song}.mp3")))
+        moves.append((original, original.with_name(f"{song}{original.suffix}")))
     moves = [(old, new) for old, new in moves if old.name != new.name]  # Path == ignores case on Windows
     for old, new in moves:
         if not old.is_file():
@@ -193,6 +198,6 @@ def rename_result(result: Result, name: str) -> None:
                 pass
         raise OSError(f"Could not rename {failed}: {e.strerror or e}") from e
     for stem in result.stems:
-        stem.path = stem.path.with_name(f"{song}_{stem.name}.mp3")
-    result.original = original.with_name(f"{song}.mp3") if original is not None else None
+        stem.path = stem.path.with_name(f"{song}_{stem.name}{stem.path.suffix}")
+    result.original = original.with_name(f"{song}{original.suffix}") if original is not None else None
     result.song = song
