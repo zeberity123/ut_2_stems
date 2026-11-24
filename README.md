@@ -191,6 +191,8 @@ a choice the app follows Windows.
 python -m pytest             fast tests, no model needed
 python -m pytest -m slow     separation on a short clip, needs the GPU
 npm run test:tauri           the Tauri window: separates a clip, renames it, closes, engine stops
+node scripts/test-update.cjs dist\UT-Stems-0.6.0-win64-setup.exe 0.6.1
+                             installs that version and checks it updates itself to the given one
 ```
 
 `test:tauri` drives the WebView2 window through Playwright over the DevTools protocol; set
