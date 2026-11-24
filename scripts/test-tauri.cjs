@@ -50,15 +50,17 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
   const engineDir = path.join(path.dirname(exe), 'engine');
   const setup = !fs.existsSync(engineDir) && !/target[\\/]debug/.test(exe);
   const edition = process.env.UT_STEMS_TEST_EDITION || 'cuda';
+  // UT_STEMS_TEST_REAL=1 downloads from the GitHub release itself instead of the local server.
+  const real = Boolean(process.env.UT_STEMS_TEST_REAL);
   let files = null;
-  if (setup) {
+  if (setup && !real) {
     const archive = path.join(root, 'dist', `UT-Stems-${VERSION}-engine-${edition}.7z`);
     assert.ok(fs.existsSync(archive) && fs.existsSync(archive + '.sha256'), `${archive} and its .sha256 exist (build.ps1 -Stage engine)`);
     files = spawn('python', ['-m', 'http.server', String(FILES_PORT), '--bind', '127.0.0.1'], {cwd: path.join(root, 'dist'), stdio: 'ignore'});
   }
   const app = spawn(exe, [], {cwd: root, stdio: 'ignore',
     env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
-      UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`}});
+      ...(real ? {} : {UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`})}});
   let browser;
   try {
     await waitFor(() => fetch(`http://127.0.0.1:${PORT}/json/version`).then(r => r.ok), {timeout: 60000, what: 'the window'});

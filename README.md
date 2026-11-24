@@ -31,7 +31,7 @@ installer for every PC and, next to it, the processing engine as one archive per
 | `UT-Stems-<version>-win64-setup.exe` | the app; installs for the current user, no administrator rights | about 2 MB |
 | `UT-Stems-<version>-engine-cuda.7z` | engine for PCs with an NVIDIA GPU (GTX 10 series or newer, current driver) | about 1.7 GB |
 | `UT-Stems-<version>-engine-xpu.7z` | engine for PCs with an Intel GPU: Arc A/B series, or the Arc graphics in Core Ultra laptops | about 1.2 GB |
-| `UT-Stems-<version>-engine-cpu.7z` | engine for everything else (no GPU, or an AMD GPU) | about 400 MB |
+| `UT-Stems-<version>-engine-cpu.7z` | engine for everything else (no GPU, or an AMD GPU) | about 200 MB |
 
 1. Run the installer. Windows SmartScreen may warn because the program is not signed:
    **More info > Run anyway**.

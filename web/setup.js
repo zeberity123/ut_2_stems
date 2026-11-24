@@ -5,7 +5,7 @@ import {segmented, toaster} from './ui.js';
 const $ = id => document.getElementById(id);
 const T = window.__TAURI__;
 const invoke = (command, args) => T.core.invoke(command, args);
-const SIZES = {cuda: '1.7 GB', xpu: '1.2 GB', cpu: '400 MB'};
+const SIZES = {cuda: '1.7 GB', xpu: '1.2 GB', cpu: '200 MB'};
 const NOTES = {
   cuda: 'For NVIDIA GPUs (GTX 10 series or newer, current driver). Also runs on the CPU when no GPU is found, so it is a safe choice for any PC.',
   xpu: 'For Intel Arc A/B series and the Arc graphics in Core Ultra laptops, with a recent Intel graphics driver.',

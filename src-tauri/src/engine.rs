@@ -50,9 +50,9 @@ pub struct Status {
 /// Rough sizes per edition: the archive, and the engine once unpacked.
 fn sizes(edition: &str) -> (u64, u64) {
     match edition {
-        "cuda" => (1_750_000_000, 4_500_000_000),
-        "xpu" => (1_300_000_000, 3_900_000_000),
-        _ => (450_000_000, 1_200_000_000),
+        "cuda" => (1_750_000_000, 4_400_000_000),
+        "xpu" => (1_250_000_000, 3_600_000_000),
+        _ => (250_000_000, 800_000_000),
     }
 }
 
