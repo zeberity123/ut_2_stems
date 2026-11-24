@@ -19,6 +19,14 @@ export class StemsAPI {
     return `${this.base}/api/${path}?${new URLSearchParams({token: this.token, ...values})}`;
   }
   async request(path, options = {}) {
+    if (this.desktop?.engineFetch) {
+      // The desktop shell carries the call to the engine (see engine_fetch in the shell).
+      const relayed = await this.desktop.engineFetch(path, options.method || 'GET', options.body ?? null);
+      let result = null;
+      try { result = JSON.parse(relayed.body || 'null'); } catch {}
+      if (relayed.status < 200 || relayed.status >= 300) throw new Error(result?.error || 'The operation could not be completed.');
+      return result;
+    }
     const response = await fetch(`${this.base}/api/${path}`, {
       ...options, headers: {'X-Session-Token': this.token, ...options.headers},
     });

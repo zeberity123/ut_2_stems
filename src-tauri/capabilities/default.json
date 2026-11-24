@@ -18,6 +18,7 @@
     "allow-pending-update",
     "allow-install-update",
     "allow-open-release-page",
-    "allow-engine-info"
+    "allow-engine-info",
+    "allow-engine-fetch"
   ]
 }

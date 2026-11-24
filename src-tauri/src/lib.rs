@@ -290,10 +290,38 @@ fn app_page(name: &str) -> tauri::Url {
 #[derive(Serialize, Clone)]
 struct EngineInfo { url: String, token: String }
 
-/// Where the engine answers; the page calls its API there.
+/// Where the engine answers; the page streams audio from there.
 #[tauri::command]
 fn engine_info(shell: State<Shell>) -> Option<EngineInfo> {
     shell.origin.lock().unwrap().as_ref().map(|origin| EngineInfo { url: origin.clone(), token: shell.token.clone() })
+}
+
+#[derive(Serialize, Clone)]
+struct Relayed { status: u16, body: String }
+
+/// The page's API calls, carried by the shell: the page lives on the shell's origin and the engine
+/// on 127.0.0.1, and going through here means any engine works, old or new, with no cross-origin rules.
+#[tauri::command]
+async fn engine_fetch(app: AppHandle, path: String, method: String, body: Option<String>) -> Result<Relayed, String> {
+    let (origin, token) = {
+        let shell = app.state::<Shell>();
+        let origin = shell.origin.lock().unwrap().clone().ok_or("The engine is not running.")?;
+        (origin, shell.token.clone())
+    };
+    if path.contains("..") || path.starts_with('/') { return Err("Bad path.".into()); }
+    tauri::async_runtime::spawn_blocking(move || {
+        let agent = ureq::Agent::config_builder().http_status_as_error(false).build().new_agent();
+        let url = format!("{origin}/api/{path}");
+        let mut response = if method.eq_ignore_ascii_case("POST") {
+            agent.post(&url).header("X-Session-Token", &token).header("Content-Type", "application/json")
+                .send(body.unwrap_or_default().as_str())
+        } else {
+            agent.get(&url).header("X-Session-Token", &token).call()
+        }.map_err(|e| format!("The engine did not answer: {e}"))?;
+        let status = response.status().as_u16();
+        let text = response.body_mut().read_to_string().map_err(|e| e.to_string())?;
+        Ok(Relayed { status, body: text })
+    }).await.map_err(|e| e.to_string())?
 }
 
 /// Starts the engine and returns its port once it prints it.
@@ -405,6 +433,7 @@ const BRIDGE: &str = r#"
     pathForFile: () => '',
     onDrop: listener => { dropListeners.push(listener); },
     engineInfo: () => invoke('engine_info'),
+    engineFetch: (path, method, body) => invoke('engine_fetch', {path, method, body: body ?? null}),
     pendingUpdate: () => invoke('pending_update'),
     checkUpdate: () => invoke('check_update'),
     installUpdate: () => invoke('install_update'),
@@ -469,7 +498,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_preferences, set_preferences, choose_files, choose_folder,
             engine_status, choose_engine_file, cancel_engine_install, install_engine,
-            check_update, pending_update, install_update, open_release_page, engine_info
+            check_update, pending_update, install_update, open_release_page, engine_info, engine_fetch
         ])
         .setup(|app| {
             let handle = app.handle().clone();

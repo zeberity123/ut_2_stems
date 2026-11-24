@@ -2,7 +2,7 @@
 const COMMANDS: &[&str] = &[
     "get_preferences", "set_preferences", "choose_files", "choose_folder",
     "engine_status", "choose_engine_file", "cancel_engine_install", "install_engine",
-    "check_update", "pending_update", "install_update", "open_release_page", "engine_info",
+    "check_update", "pending_update", "install_update", "open_release_page", "engine_info", "engine_fetch",
 ];
 
 fn main() {
