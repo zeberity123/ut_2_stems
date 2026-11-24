@@ -202,7 +202,7 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | Local server for the app (127.0.0.1, session token) | `ut_stems/server.py` |
 | Server for other PCs (HTTPS, registration, discovery) | `ut_stems/remote.py` |
 | Client window for other PCs | `desktop/client.cjs`, `desktop/setup.html` |
-| Interface | `web/` (plain HTML, CSS and JS; light and dark) |
+| Interface | `web/` (plain HTML, CSS and JS; light and dark; set in [Pretendard](https://github.com/orioncactus/pretendard), SIL OFL, `web/fonts/`) |
 | Interactive parts of the interface | ported from [Lucian UX/UI Prompt](https://lucianlabs.dev/uxui-prompt/) (MIT), see `web/styles.css` |
 | Desktop shell | `src-tauri/` (Rust, Tauri 2, the WebView2 that comes with Windows) |
 | Older desktop shell and the remote client | `desktop/` (Electron; kept for reference, not packaged any more) |
@@ -240,6 +240,9 @@ packaging\build.ps1 -Edition cuda                                        # defau
 packaging\build.ps1 -Edition xpu -Python C:\envs\xpu\Scripts\python.exe  # a Python with torch from whl/xpu
 packaging\build.ps1 -Edition cpu -Python C:\envs\cpu\Scripts\python.exe  # a Python with the CPU torch
 ```
+
+The engine stage also fetches [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (MIT, pinned by
+hash) into the engine folder: yt-dlp needs a JavaScript runtime for YouTube, and this one is 1.9 MB.
 
 `packaging\build.ps1 -Stage client` builds only UT Stems Client (`dist\UT-Stems-Client-<version>-win64.zip`),
 which needs neither Python nor an edition.
