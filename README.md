@@ -199,12 +199,19 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | Local server for the app (127.0.0.1, session token) | `ut_stems/server.py` |
 | Server for other PCs (HTTPS, registration, discovery) | `ut_stems/remote.py` |
 | Client window for other PCs | `desktop/client.cjs`, `desktop/setup.html` |
-| Interface | `web/` |
+| Interface | `web/` (plain HTML, CSS and JS; light and dark) |
+| Interactive parts of the interface | ported from [Lucian UX/UI Prompt](https://lucianlabs.dev/uxui-prompt/) (MIT), see `web/styles.css` |
 | Desktop shell | `desktop/` (Electron) |
 | Standalone build | `packaging/` (PyInstaller spec, Electron packager, `build.ps1`) |
 
-The app structure and look follow [yt_to_score](https://github.com/zeberity123/yt_to_score); the
-YouTube audio download follows [ut_downloader](https://github.com/zeberity123/ut_downloader).
+The app structure follows [yt_to_score](https://github.com/zeberity123/yt_to_score); the YouTube audio
+download follows [ut_downloader](https://github.com/zeberity123/ut_downloader). The interface keeps to
+one rule: it is monochrome, and colour belongs to the audio (each stem has its colour and nothing else
+does). Its moving parts come from Lucian UX/UI Prompt, MIT-licensed: the drop zone (#432), checkbox and
+switch (#433), segmented control (#416), the queue-to-progress bar and step log (#083), inline title
+editing (#033), the play–pause morph (#007), toasts (#435) and the circular theme reveal (#219, done
+with the View Transitions API). The theme button in the header switches between light and dark; without
+a choice the app follows Windows.
 
 ## Tests
 

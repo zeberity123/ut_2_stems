@@ -1,4 +1,5 @@
 import {StemsAPI} from './api.js';
+import {inlineTitle, playMorph, pressable, progressTrack, segmented, themeToggle, toaster} from './ui.js';
 
 const api = new StemsAPI();
 const $ = id => document.getElementById(id);
@@ -35,22 +36,48 @@ const saving = new Map();        // song id -> 'saving' | 'saved' | error messag
 const savedKey = id => `${state.boot}:${id}`;
 const cleanError = error => String(error?.message ?? error).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
 const OPTION_BUTTONS = {autoTitle: 'auto-title', keepOriginal: 'keep-original'};
+const controls = {};             // model and overlap segmented controls, theme
+let setPlaying = () => {};       // the play button's morph
+let errorToast, noticeToast, statusProgress, workingProgress, titleEditor;
+const workLog = {id: null, steps: []};  // the steps shown while a song is separated
+const CHECK = '<svg viewBox="0 0 24 24"><path d="m5.5 12.5 4 4 9-9.5"/></svg>';
+
+// ---------------------------------------------------------------- theme
+function currentTheme() {
+  const set = document.documentElement.dataset.theme;
+  if (set) return set;
+  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme(theme) {
+  if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+  try { if (theme) localStorage.setItem('ut-stems-theme', theme); else localStorage.removeItem('ut-stems-theme'); } catch {}
+  tracks.forEach(drawWave);
+}
 
 // ---------------------------------------------------------------- settings
 function stemList() { return (state?.stems ?? []).filter(stem => selected.has(stem)); }
 
 function savePreferences() {
   api.savePreferences({stems: stemList(), output: $('output').value.trim(),
-    model: $('model').value, overlap: $('overlap').value, ...options});
+    model: controls.model.value, overlap: controls.overlap.value, theme: document.documentElement.dataset.theme || '', ...options});
 }
 
 function buildChips(stems) {
   $('stem-chips').replaceChildren(...stems.map(stem => {
     const chip = document.createElement('button');
     chip.className = 'chip';
+    chip.type = 'button';
     chip.dataset.stem = stem;
     chip.style.setProperty('--stem', `var(--${stem})`);
-    chip.append(document.createElement('i'), label(stem));
+    const box = document.createElement('span');
+    box.className = 'box';
+    box.setAttribute('aria-hidden', 'true');
+    box.innerHTML = CHECK;
+    const swatch = document.createElement('span');
+    swatch.className = 'swatch';
+    swatch.setAttribute('aria-hidden', 'true');
+    chip.append(box, label(stem), swatch);
     chip.addEventListener('click', () => {
       if (selected.has(stem)) selected.delete(stem); else selected.add(stem);
       savePreferences();
@@ -76,8 +103,8 @@ function drawWave(track) {
     const to = Math.max(from + 1, Math.floor((x + 2) / width * peaks.length));
     let peak = 0;
     for (let i = from; i < to && i < peaks.length; i++) peak = Math.max(peak, peaks[i]);
-    const bar = Math.max(1, Math.pow(peak, 0.7) * height * 0.94);
-    context.fillRect(x, (height - bar) / 2, 1.3, bar);
+    const bar = Math.max(1, Math.pow(peak, 0.7) * height * 0.9);
+    context.fillRect(x, (height - bar) / 2, 1.2, bar);
   }
 }
 
@@ -129,7 +156,7 @@ function buildMixer(result) {
     name.className = 'track-name';
     const text = document.createElement('div');
     const level = document.createElement('small');
-    level.textContent = stem.silent ? 'no sound found' : `${stem.level.toFixed(1)} dB`;
+    level.textContent = stem.silent ? 'silent' : `${stem.level > 0 ? '+' : ''}${stem.level.toFixed(1)} dB`;
     level.title = 'Loudness compared with the whole song';
     text.append(label(stem.name), level);
     name.append(document.createElement('i'), text);
@@ -196,11 +223,7 @@ function seekTo(time) {
   showTime(target);
 }
 
-function setPlayIcon() {
-  $('play-icon').className = `playback-icon ${playing ? 'pause-icon' : 'play-icon'}`;
-  $('play-label').textContent = playing ? 'Pause' : 'Play';
-  $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
-}
+function setPlayIcon() { setPlaying(playing); }
 
 async function play() {
   const master = masterAudio();
@@ -290,7 +313,8 @@ function startRename(id) {
 async function rename(id, name) {
   const done = state.songs.find(song => song.id === id)?.status === 'done';
   const before = done && remote ? (results.get(id) ?? await api.result(id).catch(() => null)) : null;
-  if (!await command('rename', {id, name}) || !done) return;
+  if (!await command('rename', {id, name})) return false;
+  if (!done) return true;
   // The files have new names. The players keep going: they ask for a stem by song and instrument.
   try {
     const result = await api.result(id);
@@ -308,11 +332,42 @@ async function rename(id, name) {
         if (wave) wave.title = stem.file;
       }
     }
+    noticeToast.show(`Renamed to ${result.song}. The files have the new name.`);
   } catch {
     results.delete(id);
     if (shownId === id) shownId = null;
   }
   render();
+  return true;
+}
+
+// The steps of the song being separated, from the messages the engine reports.
+function renderWorking(song) {
+  if (!song) return;
+  if (workLog.id !== song.id) { workLog.id = song.id; workLog.steps = []; $('working-log').replaceChildren(); }
+  const STAGES = {'Starting': 'Preparing', 'Downloading audio from YouTube': 'Downloading from YouTube', 'Reading audio': 'Reading audio',
+    'Loading the separation model': 'Loading model', 'Separating stems': 'Separating', 'Cancelling': 'Cancelling'};
+  const raw = song.message.split('…')[0];
+  const stage = STAGES[raw] ?? raw;
+  const last = workLog.steps.at(-1);
+  if (!last || last.text !== stage) {
+    if (last) { last.li.classList.add('ok'); last.li.querySelector('span:last-child').textContent = `${last.text} done`; }
+    const li = document.createElement('li');
+    const at = Math.round(state.elapsed ?? 0);
+    li.innerHTML = `<span class="st" aria-hidden="true"></span><time>${clock(at)}</time><span></span>`;
+    li.lastChild.textContent = stage;
+    $('working-log').append(li);
+    while ($('working-log').children.length > 6) $('working-log').firstChild.remove();
+    workLog.steps.push({text: stage, li});
+  }
+  const determinate = /^(Separating|Writing)|\d+%$/.test(song.message);
+  $('working-song').textContent = song.title;
+  $('working-title').textContent = song.message;
+  $('working-percent').textContent = determinate ? `${Math.round(song.progress * 100)}%` : '';
+  const pill = $('working-pill');
+  pill.textContent = /^Downloading/.test(stage) ? 'Downloading' : /^Loading/.test(stage) ? 'Loading model' : /^Writing/.test(stage) ? 'Writing' : /^Separating/.test(stage) ? 'Separating' : 'Working';
+  pill.style.setProperty('--c', /^Downloading|^Loading/.test(stage) ? 'var(--warn)' : 'var(--ink)');
+  workingProgress({fraction: song.progress, determinate});
 }
 
 function renderSongs(songs) {
@@ -402,7 +457,7 @@ function render() {
   $('device').textContent = state.device ?? '';
   const onCpu = typeof state.device === 'string' && state.device.startsWith('CPU');
   $('cpu-note').hidden = !onCpu;
-  if (onCpu) $('cpu-note').textContent = CPU_NOTE[$('model').value] ?? '';
+  if (onCpu) $('cpu-note').textContent = CPU_NOTE[controls.model.value] ?? '';
   $('working-note').hidden = onCpu;
   $('working-note-cpu').hidden = !onCpu;
   renderSongs(songs);
@@ -411,7 +466,10 @@ function render() {
     chip.setAttribute('aria-pressed', String(selected.has(chip.dataset.stem)));
     chip.disabled = requesting;
   }
-  for (const [option, id] of Object.entries(OPTION_BUTTONS)) $(id).setAttribute('aria-pressed', String(options[option]));
+  for (const [option, id] of Object.entries(OPTION_BUTTONS)) {
+    $(id).setAttribute('aria-pressed', String(options[option]));
+    $(id).setAttribute('aria-checked', String(options[option]));
+  }
   const typed = Boolean($('source').value.trim());
   const ready = waitingCount() + (typed ? 1 : 0);
   $('add-source').disabled = requesting || !typed || Boolean(uploading);
@@ -428,6 +486,9 @@ function render() {
   $('status-dot').classList.toggle('busy', busy);
   $('progress').hidden = !busy;
   $('progress').value = state.progress;
+  const runningSong = songs.find(entry => entry.id === state.running);
+  statusProgress({visible: busy, fraction: state.progress,
+    determinate: Boolean(runningSong) && /^(Separating|Writing)|\d+%$/.test(runningSong.message)});
   $('cancel').hidden = !busy;
   $('elapsed-time').hidden = !busy;
   if (busy) $('elapsed-time').textContent = clock(state.elapsed ?? 0);
@@ -442,7 +503,7 @@ function render() {
   $('working').hidden = song?.status !== 'running';
   $('mixer').hidden = !result;
   $('pending').hidden = !song || song.status === 'running' || done;
-  if (song?.status === 'running') $('working-title').textContent = song.message;
+  if (song?.status === 'running') renderWorking(song);
   if (song?.status === 'waiting') {
     $('pending-title').textContent = song.message === 'Cancelled' ? 'Cancelled' : 'Ready to separate';
     $('pending-note').textContent = 'Pick the stems you want, then press Separate.';
@@ -454,8 +515,7 @@ function render() {
     $('pending-note').textContent = song.error ?? '';
   }
 
-  $('error').hidden = !localError;
-  $('error-text').textContent = localError;
+  errorToast.show(localError);
 }
 
 async function command(action, values = {}) {
@@ -565,7 +625,7 @@ async function separate() {
   follow = true;
   for (const song of state.songs) if (song.status === 'waiting') folderFor.set(song.id, $('output').value.trim());
   await command('start', {stems: stemList(), output: $('output').value.trim(),
-    model: $('model').value, overlap: Number($('overlap').value), ...options});
+    model: controls.model.value, overlap: Number(controls.overlap.value), ...options});
 }
 
 // ---------------------------------------------------------------- start
@@ -584,16 +644,39 @@ async function start() {
     api.onUploadProgress(progress => { if (progress) { uploading = progress; render(); } });
   }
   $('output').value = preferences.output || (remote ? server.defaultOutput : state.defaultOutput);
-  if (state.models.includes(preferences.model)) $('model').value = preferences.model;
-  if (['2', '4'].includes(preferences.overlap)) $('overlap').value = preferences.overlap;
+  controls.model = segmented($('model'), () => { savePreferences(); render(); });
+  controls.overlap = segmented($('overlap'), savePreferences);
+  if (state.models.includes(preferences.model)) controls.model.value = preferences.model;
+  if (['2', '4'].includes(preferences.overlap)) controls.overlap.value = preferences.overlap;
   for (const option of Object.keys(options)) {
     if (typeof preferences[option] === 'boolean') options[option] = preferences[option];
+    pressable($(OPTION_BUTTONS[option]));
     $(OPTION_BUTTONS[option]).addEventListener('click', () => {
       options[option] = !options[option];
       savePreferences();
       render();
     });
   }
+  if (preferences.theme === 'dark' || preferences.theme === 'light') applyTheme(preferences.theme);
+  themeToggle($('theme'), {get: () => currentTheme() === 'dark', set: dark => { applyTheme(dark ? 'dark' : 'light'); savePreferences(); }});
+  errorToast = toaster($('error'), $('error-text'), $('dismiss-error'), {life: 0});
+  noticeToast = toaster($('notice'), $('notice-text'), $('dismiss-notice'));
+  statusProgress = progressTrack($('progress-track'));
+  workingProgress = progressTrack($('working-track'));
+  setPlaying = playMorph($('play'));
+  titleEditor = inlineTitle($('title-row'), {
+    view: $('song'), pen: $('title-pen'), input: $('title-input'),
+    ok: document.querySelector('#title-row .ok'), no: document.querySelector('#title-row .no'),
+    canEdit: () => shownId != null && state?.songs.find(song => song.id === shownId)?.status === 'done',
+    save: name => rename(shownId, name),
+  });
+  $('dropzone').addEventListener('click', async event => {
+    if (event.target.closest('.dz-browse') || api.desktop) {
+      const paths = await api.chooseFiles();
+      if (paths.length) addSources(paths);
+    } else $('source').focus();
+  });
+  $('dropzone').addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); $('dropzone').click(); } });
   if (!api.desktop) {
     // In a plain browser there are no file dialogs; paths are typed instead.
     $('choose-file').hidden = true;
@@ -602,7 +685,6 @@ async function start() {
   }
 
   $('source').addEventListener('input', render);
-  $('model').addEventListener('change', render);
   $('source').addEventListener('keydown', event => { if (event.key === 'Enter') addTyped(); });
   $('add-source').addEventListener('click', addTyped);
   $('choose-file').addEventListener('click', async () => {
@@ -613,7 +695,7 @@ async function start() {
     const path = await api.chooseFolder($('output').value.trim());
     if (path) { $('output').value = path; savePreferences(); }
   });
-  for (const id of ['output', 'model', 'overlap']) $(id).addEventListener('change', savePreferences);
+  $('output').addEventListener('change', savePreferences);
   $('stems-all').addEventListener('click', () => { state.stems.forEach(stem => selected.add(stem)); savePreferences(); render(); });
   $('stems-none').addEventListener('click', () => { selected.clear(); savePreferences(); render(); });
   $('separate').addEventListener('click', separate);
@@ -623,7 +705,7 @@ async function start() {
     if (remote) api.openLocalFolder(savedKey(shownId)).catch(error => showError(cleanError(error)));
     else command('open-folder', {id: shownId});
   });
-  $('dismiss-error').addEventListener('click', () => { localError = ''; render(); });
+  $('dismiss-error').addEventListener('click', () => { localError = ''; });
 
   $('play').addEventListener('click', () => { if (playing) pause(); else play(); });
   $('seek').addEventListener('pointerdown', () => { seeking = true; });
@@ -631,14 +713,19 @@ async function start() {
   $('seek').addEventListener('change', () => { seeking = false; seekTo(Number($('seek').value)); });
   new ResizeObserver(() => tracks.forEach(drawWave)).observe($('tracks'));
 
+  // Dragging files over the window lights up the drop zone, or an overlay when the stage shows something else.
   let dragDepth = 0;
-  window.addEventListener('dragenter', event => { event.preventDefault(); dragDepth += 1; $('drop-hint').hidden = false; });
-  window.addEventListener('dragover', event => event.preventDefault());
-  window.addEventListener('dragleave', () => { dragDepth -= 1; if (dragDepth <= 0) $('drop-hint').hidden = true; });
+  const dragging = on => {
+    $('stage').classList.toggle('is-drag', on);
+    $('drop-hint').hidden = !on || !$('empty').hidden;
+  };
+  window.addEventListener('dragenter', event => { event.preventDefault(); dragDepth += 1; dragging(true); });
+  window.addEventListener('dragover', event => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; });
+  window.addEventListener('dragleave', () => { dragDepth -= 1; if (dragDepth <= 0) { dragDepth = 0; dragging(false); } });
   window.addEventListener('drop', event => {
     event.preventDefault();
     dragDepth = 0;
-    $('drop-hint').hidden = true;
+    dragging(false);
     const paths = [...(event.dataTransfer?.files ?? [])].map(file => api.pathForFile(file)).filter(Boolean);
     if (paths.length) addSources(paths);
   });

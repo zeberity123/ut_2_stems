@@ -285,6 +285,7 @@ ipcMain.handle('set-preferences', (event, values) => {
     overlap: typeof values?.overlap === 'string' ? values.overlap.slice(0, 4) : '',
     autoTitle: values?.autoTitle !== false,
     keepOriginal: values?.keepOriginal !== false,
+    theme: ['dark', 'light'].includes(values?.theme) ? values.theme : '',
   };
   writeJson(preferencesPath, preferences);
 });

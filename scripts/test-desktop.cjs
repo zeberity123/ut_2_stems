@@ -99,15 +99,30 @@ const assert = require('node:assert/strict');
     assert.deepEqual(saved.stems, wanted, 'The stem selection is saved');
     assert.equal(saved.output, output, 'The output folder is saved');
 
-    // The file options under Advanced are toggles like the stems, on by default, and remembered.
-    await page.locator('#advanced > summary').click();
-    assert.equal(await page.locator('#auto-title').getAttribute('aria-pressed'), 'true');
-    assert.equal(await page.locator('#keep-original').getAttribute('aria-pressed'), 'true');
+    // The file options are switches, on by default, and remembered. So is the theme.
+    assert.equal(await page.locator('#auto-title').getAttribute('aria-checked'), 'true');
+    assert.equal(await page.locator('#keep-original').getAttribute('aria-checked'), 'true');
     await page.locator('#keep-original').click();
-    assert.equal(await page.locator('#keep-original').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.locator('#keep-original').getAttribute('aria-checked'), 'false');
     await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.keepOriginal === false));
-    await screenshot('advanced');
-    await page.locator('#advanced > summary').click();
+    const theme = () => page.evaluate(() => document.documentElement.dataset.theme || 'system');
+    await page.locator('#theme').click();
+    await page.waitForTimeout(900);
+    const first = await theme();
+    assert.ok(['dark', 'light'].includes(first), 'The theme button picks a theme');
+    await screenshot(`ready-${first}`);
+    await page.locator('#theme').click();
+    await page.waitForTimeout(900);
+    const second = await theme();
+    assert.notEqual(first, second, 'The theme button switches back');
+    await page.waitForFunction(value => window.desktop.getPreferences().then(saved => saved.theme === value), second);
+    await screenshot(`ready-${second}`);
+    // HT-Demucs is a segmented choice, with the keyboard too.
+    await page.locator('#model [data-value="htdemucs_6s"]').click();
+    await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.model === 'htdemucs_6s'));
+    await page.locator('#model [data-value="htdemucs_6s"]').focus();
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForFunction(() => window.desktop.getPreferences().then(saved => saved.model === 'bs_roformer_sw'));
 
     await page.locator('#separate').click();
     await page.waitForFunction(() => !document.querySelector('#working').hidden, null, {timeout: 15000});
@@ -165,10 +180,13 @@ const assert = require('node:assert/strict');
     for (const name of [`${renamed}.mp3`, ...wanted.map(stem => `${renamed}_${stem}.mp3`)]) {
       fs.rmSync(path.join(output, name), {force: true});
     }
-    await page.locator('.song-main').first().dblclick();
-    await page.locator('.song-rename-input').fill(renamed);
+    // Renaming from the mixer title: the title becomes a field in the same type.
+    await page.locator('#song').click();
+    await page.locator('#title-input').fill(renamed);
     await page.keyboard.press('Enter');
     await page.waitForFunction(title => document.querySelector('#song').textContent === title, renamed);
+    await page.waitForFunction(() => !document.querySelector('#notice').hidden);
+    await screenshot('renamed');
     assert.equal(await page.locator('.song-title').first().textContent(), renamed);
     for (const stem of wanted) {
       assert.ok(fs.existsSync(path.join(output, `${renamed}_${stem}.mp3`)), `${stem} was renamed`);

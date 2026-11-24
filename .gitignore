@@ -38,3 +38,8 @@ Thumbs.db
 # node / electron
 node_modules/
 diagnostics/
+
+# agent skills installed into the project
+.agents/
+.claude/skills/
+skills-lock.json
