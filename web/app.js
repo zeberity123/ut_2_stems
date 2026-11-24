@@ -48,7 +48,7 @@ function currentTheme() {
   if (set) return set;
   return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
-const THEMES = ['light', 'dark', 'miku'];
+const THEMES = ['light', 'dark', 'miku', 'miku-light'];
 function applyTheme(theme) {
   if (THEMES.includes(theme)) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;

@@ -59,9 +59,9 @@
   --wave-bg: #101117;
 }
 /* Miku: the one sanctioned exception to the monochrome rule. No picture of her; her things instead:
-   the teal of her hair over its own darker shade, the red "01" on her arm (the sections are numbered
-   that way), the headphones with their pink light for what is live, the stripes of her sleeves on the
-   main button, the leek green and the skirt pink among the stems, and a faint digital grid. */
+   the teal of her hair over its own darker shade, the red "01" on her arm (on the theme button),
+   the headphones with their pink light for what is live, the leek green and the skirt pink among
+   the stems, and a faint digital grid. */
 :root[data-theme="miku"] {
   color-scheme: dark;
   --page: #0B1413; --surface: #10201E; --surface-2: #142926; --surface-3: #1C3632;
@@ -79,19 +79,9 @@
   background-size: 32px 32px;
 }
 :root[data-theme="miku"] .app-header { border-bottom: 1px solid transparent; border-image: linear-gradient(90deg, var(--accent), rgba(57, 197, 187, .15) 55%, transparent) 1; }
-/* the brand mark becomes her "01" */
-:root[data-theme="miku"] .brand img { display: none; }
-:root[data-theme="miku"] .brand::before { content: "01"; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); font: 700 10.5px/1 var(--mono); letter-spacing: 0; }
 :root[data-theme="miku"] .theme-button[data-theme="miku"] { color: var(--tattoo); border-color: color-mix(in srgb, var(--tattoo) 50%, transparent); }
-/* sections numbered like the tattoo: 01 in red, the rest in teal */
+/* the section labels in teal */
 :root[data-theme="miku"] .section-label, :root[data-theme="miku"] .rail-heading h2 { color: var(--accent); }
-:root[data-theme="miku"] .sidebar-scroll { counter-reset: part; }
-:root[data-theme="miku"] .control-section > .section-label:first-child::before,
-:root[data-theme="miku"] .control-section > .section-heading:first-child > .section-label::before {
-  counter-increment: part; content: counter(part, decimal-leading-zero); margin-right: 8px; padding: 1px 5px; border-radius: 4px;
-  font-family: var(--mono); font-weight: 700; letter-spacing: 0; color: var(--accent-ink); background: var(--accent);
-}
-:root[data-theme="miku"] .sidebar-scroll > .control-section:first-child > .section-label::before { background: var(--tattoo); color: #fff; }
 /* twin-tail glows at the stage's feet, a digital room */
 :root[data-theme="miku"] .stage { isolation: isolate; }
 :root[data-theme="miku"] .stage::before {
@@ -107,12 +97,8 @@
   background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 :root[data-theme="miku"] .title-view:hover:not(:disabled) { background: linear-gradient(90deg, #E6FBF9 0%, #7FE3DB 55%, #39C5BB 100%); -webkit-background-clip: text; background-clip: text; text-decoration: underline dotted var(--accent); text-underline-offset: 6px; }
-/* the main button wears her sleeve stripes */
-:root[data-theme="miku"] button.primary, :root[data-theme="miku"] button.primary:hover:not(:disabled) {
-  background: linear-gradient(104deg, var(--accent) 0 83%, var(--page) 83% 84.2%, var(--accent) 84.2% 87.2%, var(--page) 87.2% 88.4%, var(--accent) 88.4%);
-  border-color: var(--accent); color: var(--accent-ink);
-}
-:root[data-theme="miku"] button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+/* the main button in plain teal */
+:root[data-theme="miku"] button.primary:hover:not(:disabled) { background: #4FD2C8; border-color: #4FD2C8; }
 /* the play button is an ear cup: black, a teal ring, the pink light when it plays */
 :root[data-theme="miku"] .play { position: relative; background: var(--page); color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 8px 20px -10px var(--shadow-strong); }
 :root[data-theme="miku"] .play:hover:not(:disabled) { background: var(--surface); }
@@ -128,6 +114,51 @@
 :root[data-theme="miku"] .ptrack .fill, :root[data-theme="miku"] .ptrack .seg { background: var(--accent); }
 :root[data-theme="miku"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
 :root[data-theme="miku"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px var(--page); }
+/* Miku in daylight, after her LINE theme: a pale sky-mint page with a faint diamond lattice,
+   white cards, a teal band across the top, dark teal type, pink for what is live. Flat; nothing glows. */
+:root[data-theme="miku-light"] {
+  color-scheme: light;
+  --page: #DCF2EF; --surface: #FFFFFF; --surface-2: #EEF9F7; --surface-3: #DCEFEC;
+  --ink: #163533; --ink-2: #4A6B68; --ink-3: #7E9A97;
+  --line: rgba(22, 53, 51, .1); --line-2: rgba(57, 197, 187, .5);
+  --accent: #39C5BB; --accent-ink: #0B2A27; --accent-soft: rgba(57, 197, 187, .16);
+  --mint: #1A9E93; --warn: #D1891F; --danger: #E0508C; --live: #FF5FA2; --tattoo: #E3242B;
+  --shadow: rgba(22, 53, 51, .14); --shadow-strong: rgba(22, 53, 51, .3);
+  --vocals: #1FB5AA; --bass: #3F7FE8; --drums: #E8508F; --guitars: #86B51F; --piano: #7B5FD9; --others: #6E8683;
+  --wave-bg: #EAF7F5;
+}
+:root[data-theme="miku-light"] body {
+  scrollbar-color: rgba(57, 197, 187, .5) transparent;
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, .22) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, .22) 75%),
+                    linear-gradient(45deg, rgba(255, 255, 255, .22) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, .22) 75%);
+  background-size: 64px 64px; background-position: 0 0, 32px 32px;
+}
+/* the teal band, white on it */
+:root[data-theme="miku-light"] .app-header { background: var(--accent); border-bottom-color: transparent; color: #fff; }
+:root[data-theme="miku-light"] .app-header .icon-button, :root[data-theme="miku-light"] .app-header .text-button { background: transparent; border-color: rgba(255, 255, 255, .5); color: #fff; }
+:root[data-theme="miku-light"] .app-header .icon-button:hover:not(:disabled), :root[data-theme="miku-light"] .app-header .text-button:hover:not(:disabled) { background: rgba(255, 255, 255, .18); border-color: #fff; }
+:root[data-theme="miku-light"] .device-chip { color: #fff; border-color: rgba(255, 255, 255, .5); }
+:root[data-theme="miku-light"] .theme-button[data-theme="miku-light"] { color: #fff; }
+/* the panels sit on the sky as white cards */
+:root[data-theme="miku-light"] .song-sidebar, :root[data-theme="miku-light"] .sidebar { background: var(--surface); }
+:root[data-theme="miku-light"] .section-label, :root[data-theme="miku-light"] .rail-heading h2 { color: var(--mint); }
+:root[data-theme="miku-light"] .song-item.selected { border-left-color: var(--accent); }
+:root[data-theme="miku-light"] .dropzone::before { border-color: var(--line-2); }
+:root[data-theme="miku-light"] .dz-arrow { color: var(--accent); background: var(--surface); box-shadow: 0 0 0 1px var(--line-2); }
+:root[data-theme="miku-light"] .track { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+/* teal where something is pressed or playing, like her keypad */
+:root[data-theme="miku-light"] .play { background: var(--accent); color: var(--accent-ink); box-shadow: 0 8px 20px -10px var(--shadow-strong); }
+:root[data-theme="miku-light"] .play:hover:not(:disabled) { background: #4FD2C8; }
+:root[data-theme="miku-light"] .transport input[type=range]::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 0 3px #fff; }
+:root[data-theme="miku-light"] button.primary:hover:not(:disabled) { background: #4FD2C8; }
+:root[data-theme="miku-light"] .segmented button[aria-checked=true] { color: var(--accent-ink); }
+/* pink for what is live */
+:root[data-theme="miku-light"] .status-dot.busy, :root[data-theme="miku-light"] .song-item[data-status=running] small::before { background: var(--live); }
+:root[data-theme="miku-light"] .wave::after { background: var(--live); }
+:root[data-theme="miku-light"] .track-buttons button[aria-pressed=true].mute { background: var(--live); border-color: var(--live); color: #fff; }
+:root[data-theme="miku-light"] .pill { --c: var(--mint); }
+:root[data-theme="miku-light"] .ptrack .fill, :root[data-theme="miku-light"] .ptrack .seg { background: var(--accent); }
+:root[data-theme="miku-light"] .plog .st::before { border-color: var(--accent); border-right-color: transparent; }
 
 /* Lucian tokens, pointed at the theme above (porting guide §1). */
 :root {
@@ -161,10 +192,10 @@ button:active:not(:disabled) { transform: scale(.97); }
 button:disabled { cursor: default; opacity: .4; }
 button.primary {
   background: var(--accent); border-color: var(--accent); color: var(--accent-ink); height: 44px; font-size: 13.5px; font-weight: 650;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; border-radius: 13px;
+  position: relative; display: flex; align-items: center; justify-content: center; padding: 0 40px; border-radius: 13px;
 }
 button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, var(--page)); border-color: transparent; }
-button.primary .arrow { font-size: 17px; line-height: 1; transition: transform .35s var(--spring); }
+button.primary .arrow { position: absolute; right: 16px; font-size: 17px; line-height: 1; transition: transform .35s var(--spring); }
 button.primary:hover:not(:disabled) .arrow { transform: translateX(3px); }
 button.ghost { background: transparent; }
 .text-button { height: 26px; padding: 0 8px; border-color: transparent; background: transparent; color: var(--ink-2); font-size: 11.5px; border-radius: 8px; }
@@ -202,8 +233,8 @@ input[type=range] { accent-color: var(--accent); cursor: pointer; min-width: 0; 
 .theme-button { position: relative; color: var(--ink); }
 .theme-button svg { grid-area: 1 / 1; width: 15px; height: 15px; transition: transform .6s cubic-bezier(.3, 1.4, .5, 1), opacity .25s; }
 .theme-button svg { opacity: 0; transform: rotate(90deg) scale(.6); }
-.theme-button[data-theme="light"] .sun, .theme-button[data-theme="dark"] .moon, .theme-button[data-theme="miku"] .miku { opacity: 1; transform: none; }
-.theme-button[data-theme="miku"] { color: var(--accent); }
+.theme-button[data-theme="light"] .sun, .theme-button[data-theme="dark"] .moon, .theme-button[data-theme="miku"] .miku, .theme-button[data-theme="miku-light"] .miku { opacity: 1; transform: none; }
+.theme-button[data-theme="miku"], .theme-button[data-theme="miku-light"] { color: var(--accent); }
 /* #219: the new theme spreads out in a circle from the button, here through the View Transitions API. */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 ::view-transition-new(root) { animation: theme-reveal .7s cubic-bezier(.65, 0, .35, 1); }

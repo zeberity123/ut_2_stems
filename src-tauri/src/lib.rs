@@ -167,7 +167,7 @@ fn get_preferences(app: AppHandle) -> Preferences {
 fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), String> {
     let string = |key: &str, max: usize| values.get(key).and_then(|v| v.as_str()).map(|s| truncate(s, max)).unwrap_or_default();
     let flag = |key: &str| values.get(key).and_then(|v| v.as_bool()).unwrap_or(true);
-    let theme = string("theme", 8);
+    let theme = string("theme", 12);
     let format = string("format", 4);
     let next = Preferences {
         stems: values.get("stems").and_then(|v| v.as_array()).map(|list| {
@@ -178,7 +178,7 @@ fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), Stri
         overlap: string("overlap", 4),
         auto_title: flag("autoTitle"),
         keep_original: flag("keepOriginal"),
-        theme: if ["dark", "light", "miku"].contains(&theme.as_str()) { theme } else { String::new() },
+        theme: if ["dark", "light", "miku", "miku-light"].contains(&theme.as_str()) { theme } else { String::new() },
         format: if ["auto", "mp3", "wav"].contains(&format.as_str()) { format } else { String::new() },
     };
     let path = preferences_path(&app).ok_or("no settings folder")?;
@@ -448,7 +448,8 @@ fn open_window(app: &AppHandle, url: WebviewUrl) -> tauri::Result<()> {
     let theme = get_preferences(app.clone()).theme;
     let background = match theme.as_str() {
         "light" => tauri::window::Color(0xF4, 0xF2, 0xEE, 255),
-        "miku" => tauri::window::Color(0x0A, 0x0B, 0x0B, 255),
+        "miku" => tauri::window::Color(0x0B, 0x14, 0x13, 255),
+        "miku-light" => tauri::window::Color(0xDC, 0xF2, 0xEF, 255),
         _ => tauri::window::Color(0x0B, 0x0C, 0x10, 255),
     };
     let guard = app.clone();

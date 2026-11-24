@@ -119,8 +119,9 @@ When it finishes, the stems open in the mixer and **Open folder** shows the file
 **Format.** *Auto* writes 24-bit WAV stems for a lossless file (WAV, FLAC, AIFF) and 320 kbps MP3
 stems for everything else, YouTube included; *MP3* and *WAV* force one or the other.
 
-**Theme.** The button at the top right steps through light, dark and *Miku* (black, the teal
-`#39c5bb`, red for what is live). Without a choice the app follows Windows.
+**Theme.** The button at the top right steps through light, dark, *Miku* (black, the teal
+`#39c5bb`, pink for what is live) and *Miku in daylight* (the same teal on a pale sky, after her LINE
+theme). Without a choice the app follows Windows.
 
 To separate several songs, add them one by one with **Add** (or Enter), or pick several files at
 once. They appear in the **Songs** list on the left and nothing starts until you press

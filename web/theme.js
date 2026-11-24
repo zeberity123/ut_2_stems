@@ -3,6 +3,6 @@
 (function () {
   try {
     var theme = localStorage.getItem('ut-stems-theme');
-    if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+    if (['light', 'dark', 'miku', 'miku-light'].includes(theme)) document.documentElement.dataset.theme = theme;
   } catch (e) {}
 })();
