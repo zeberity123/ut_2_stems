@@ -6,6 +6,13 @@
    #432 drop zone, #433 checkbox and switch, #416 segmented control, #083 queue-to-progress bar,
    #033 inline title editing, #007 play–pause morph, #435 toasts, #219 circular theme reveal. */
 
+/* Pretendard (SIL Open Font License, web/fonts/LICENSE.txt): one variable file covers Korean and Latin. */
+@font-face {
+  font-family: "Pretendard Variable";
+  src: url("fonts/PretendardVariable.woff2") format("woff2-variations");
+  font-weight: 45 920; font-style: normal; font-display: block;
+}
+
 :root {
   --font: "Pretendard Variable", Pretendard, "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
   --font-display: "Pretendard Variable", Pretendard, "Segoe UI Variable Display", "Segoe UI", "Noto Sans KR", system-ui, sans-serif;

@@ -57,6 +57,12 @@ if (Want 'engine') {
   Copy-Item $ffmpeg (Join-Path $engineOut 'ffmpeg.exe')
   $license = Get-ChildItem (Split-Path (Split-Path $ffmpeg)) -Filter 'LICENSE*' -File -ErrorAction SilentlyContinue | Select-Object -First 1
   if ($license) { Copy-Item $license.FullName (Join-Path $engineOut 'ffmpeg-LICENSE.txt') }
+  # yt-dlp needs a JavaScript runtime for YouTube: QuickJS-ng (MIT), a single 1.9 MB program, pinned by hash.
+  $qjs = Join-Path $engineOut 'qjs.exe'
+  $qjsUrl = 'https://github.com/quickjs-ng/quickjs/releases/download/v0.18.0/qjs-windows-x86_64.exe'
+  $qjsHash = 'ff03398d74ea6e6bd3a8e58058f7003225abcac229d7d57775b7aaae812a49c7'
+  Invoke-WebRequest -Uri $qjsUrl -OutFile $qjs -UseBasicParsing
+  if ((Get-FileHash $qjs -Algorithm SHA256).Hash.ToLower() -ne $qjsHash) { throw "qjs.exe does not match the expected hash" }
   Run (Join-Path $engineOut 'ut-stems.exe') @('--version')
   $size = (Get-ChildItem $engineOut -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
   Write-Host ("   engine: {0:N0} MB" -f $size)
