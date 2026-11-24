@@ -5,8 +5,9 @@
 .DESCRIPTION
   Stages (default: all = engine, tauri):
     engine    PyInstaller folder with ut-stems-engine.exe, ut-stems.exe, the libraries and ffmpeg
-    tauri     the installer: the Tauri window with the engine inside -> dist\UT-Stems-<version>-win64-<edition>-setup.exe
-              (needs Rust and Node.js; `npm install` first)
+              also packs it: dist\UT-Stems-<version>-engine-<edition>.7z and its .sha256, which the app downloads
+    tauri     the installer, the same for every edition: dist\UT-Stems-<version>-win64-setup.exe (Rust and Node.js;
+              `npm install` first). The app downloads the engine archive from the GitHub release on first start.
     electron  (older path) the Electron window; assemble puts the engine next to it; archive zips it
     client    UT Stems Client only (no engine, any PC): dist\UT-Stems-Client-<version>-win64.zip.
               Not part of 'all':  packaging\build.ps1 -Stage client
@@ -59,25 +60,30 @@ if (Want 'engine') {
   Run (Join-Path $engineOut 'ut-stems.exe') @('--version')
   $size = (Get-ChildItem $engineOut -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
   Write-Host ("   engine: {0:N0} MB" -f $size)
+  # One archive per edition, under GitHub's 2 GB limit, which the app downloads on first start.
+  # No filters (-mf=off) so that the app's own 7z reader can unpack it.
+  if (-not (Test-Path $SevenZip)) { throw "7-Zip not found at $SevenZip (winget install 7zip.7zip)" }
+  $archive = Join-Path $dist "UT-Stems-$version-engine-$Edition.7z"
+  if (Test-Path $archive) { Remove-Item $archive -Force }
+  Push-Location $engineOut
+  try { Run $SevenZip @('a', '-t7z', '-mx=5', '-mmt=on', '-mf=off', '-ms=on', $archive, '*') } finally { Pop-Location }
+  '{0}  {1}' -f (Get-FileHash $archive -Algorithm SHA256).Hash.ToLower(), (Split-Path $archive -Leaf) |
+    Set-Content "$archive.sha256" -Encoding ascii
+  Write-Host ('   {0}: {1:N0} MB' -f (Split-Path $archive -Leaf), ((Get-Item $archive).Length / 1MB))
 }
 
 if (Want 'tauri') {
-  Write-Host "== Installer ($Edition) with Tauri"
-  if (-not (Test-Path $engineOut)) { throw "No engine at $engineOut; run the engine stage first" }
+  Write-Host '== Installer with Tauri (the engine is downloaded by the app on first start)'
   $cargo = Join-Path $env:USERPROFILE '.cargo\bin'
   if (Test-Path $cargo) { $env:PATH = "$cargo;$env:PATH" }
-  # The engine folder goes into the installer as engine\ next to the executable.
-  $override = Join-Path $dist "tauri-$Edition.json"
-  @{ bundle = @{ resources = @{ (($engineOut -replace '\\', '/') + '/**/*') = 'engine/' } } } |
-    ConvertTo-Json -Depth 5 | Set-Content $override -Encoding utf8
-  Run 'npx.cmd' @('tauri', 'build', '--config', $override, '--bundles', 'nsis')
+  Run 'npx.cmd' @('tauri', 'build', '--bundles', 'nsis')
   $setup = Get-ChildItem (Join-Path $root 'src-tauri\target\release\bundle\nsis') -Filter '*-setup.exe' | Sort-Object LastWriteTime | Select-Object -Last 1
   if (-not $setup) { throw 'Tauri produced no installer' }
-  $target = Join-Path $dist "$name-setup.exe"
+  $target = Join-Path $dist "UT-Stems-$version-win64-setup.exe"
   Move-Item $setup.FullName $target -Force
   '{0}  {1}' -f (Get-FileHash $target -Algorithm SHA256).Hash.ToLower(), (Split-Path $target -Leaf) |
-    Set-Content (Join-Path $dist "$name-setup.sha256") -Encoding ascii
-  Write-Host ('   {0}: {1:N0} MB' -f (Split-Path $target -Leaf), ((Get-Item $target).Length / 1MB))
+    Set-Content (Join-Path $dist "UT-Stems-$version-win64-setup.sha256") -Encoding ascii
+  Write-Host ('   {0}: {1:N1} MB' -f (Split-Path $target -Leaf), ((Get-Item $target).Length / 1MB))
 }
 
 if (Want 'electron') {

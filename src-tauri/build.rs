@@ -1,5 +1,8 @@
-// The page may call only these commands (see capabilities/default.json).
-const COMMANDS: &[&str] = &["get_preferences", "set_preferences", "choose_files", "choose_folder"];
+// The pages may call only these commands (see capabilities/default.json).
+const COMMANDS: &[&str] = &[
+    "get_preferences", "set_preferences", "choose_files", "choose_folder",
+    "engine_status", "choose_engine_file", "cancel_engine_install", "install_engine",
+];
 
 fn main() {
     tauri_build::try_build(

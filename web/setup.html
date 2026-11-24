@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://ipc.localhost ipc:; object-src 'none'; base-uri 'none'; frame-src 'none'">
+  <meta name="color-scheme" content="dark light">
+  <title>UT Stems</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="theme.js"></script>
+  <script type="module" src="setup.js"></script>
+</head>
+<body class="setup-body">
+  <header class="app-header">
+    <div class="brand"><img src="icon.svg" alt="">UT Stems</div>
+  </header>
+  <main class="setup ux">
+    <section class="setup-panel">
+      <p class="section-label">First start</p>
+      <h1 id="setup-title">Get the processing engine</h1>
+      <p id="setup-lead" class="setup-lead">UT Stems separates songs with PyTorch models that run on this PC. They are not in the installer; they are downloaded once, for the graphics card in this PC.</p>
+
+      <div class="setup-facts">
+        <div><span class="section-label">Graphics in this PC</span><b id="graphics">…</b></div>
+        <div><span class="section-label">Installs to</span><b id="folder" class="mono">…</b></div>
+      </div>
+
+      <p class="section-label spaced">Edition</p>
+      <!-- Segmented control, ported from Lucian UX/UI Prompt #416 (MIT) -->
+      <div id="edition" class="segmented" role="radiogroup" aria-label="Edition" data-value="cuda">
+        <span class="thumb" aria-hidden="true"></span>
+        <button type="button" role="radio" data-value="cuda" aria-checked="true">NVIDIA<small>about 1.7 GB</small></button>
+        <button type="button" role="radio" data-value="xpu" aria-checked="false" tabindex="-1">Intel Arc<small>about 1.2 GB</small></button>
+        <button type="button" role="radio" data-value="cpu" aria-checked="false" tabindex="-1">CPU only<small>about 400 MB</small></button>
+      </div>
+      <p id="edition-note" class="help"></p>
+
+      <!-- Progress download button, ported from Lucian UX/UI Prompt #004 (MIT) -->
+      <div id="dl" class="dl" data-state="idle">
+        <button id="dl-button" class="dl-btn" type="button" aria-label="Download the processing engine">
+          <span class="dl-track" aria-hidden="true"><span class="dl-bar"></span></span>
+          <span class="dl-idle" aria-hidden="true">
+            <span class="dl-arw"><svg viewBox="0 0 24 24"><g class="dl-a"><path d="M12 4.5v11M7 11l5 5 5-5"/></g><path d="M5 19.5h14"/></svg></span>
+            <b id="dl-label">Download and install</b><small id="dl-size">1.7 GB</small>
+          </span>
+          <span class="dl-run" aria-hidden="true"><b id="dl-pct">0%</b><small id="dl-eta">Starting…</small></span>
+          <span class="dl-ok" aria-hidden="true"><i><svg viewBox="0 0 16 16"><path d="M3.5 8.4l3 3 6-6.4"/></svg></i><span>Ready</span></span>
+        </button>
+        <span id="dl-live" class="sr-only" aria-live="polite"></span>
+      </div>
+      <p class="help setup-alt">Already have the file? <button id="pick-file" class="link-button" type="button">Use a downloaded archive…</button><span id="nearby-note"></span></p>
+    </section>
+  </main>
+  <footer class="status-bar">
+    <span id="status-dot" class="status-dot"></span><span id="status" role="status">Nothing is installed yet.</span>
+    <span class="local-label">Runs on this PC</span>
+  </footer>
+  <section id="toasts" class="toasts ux" aria-label="Notifications">
+    <div id="error" class="toast error" role="alert" hidden>
+      <span class="toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7v6M12 16.5v.5"/></svg></span>
+      <span id="error-text" class="toast-text"></span>
+      <button id="dismiss-error" class="toast-x" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </section>
+</body>
+</html>

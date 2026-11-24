@@ -14,6 +14,8 @@ const root = path.resolve(__dirname, '..');
 const diagnostics = path.join(root, 'diagnostics');
 const output = path.join(diagnostics, 'tauri-output');
 const PORT = 9333;
+const FILES_PORT = 9334;
+const VERSION = require('../package.json').version;
 
 function engines() {
   const list = execFileSync('powershell', ['-NoProfile', '-Command',
@@ -42,16 +44,46 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
 
   const exe = process.env.UT_STEMS_TEST_APP || path.join(root, 'src-tauri', 'target', 'debug', 'ut-stems.exe');
   assert.ok(fs.existsSync(exe), `${exe} exists (cargo build in src-tauri first)`);
+  // A release build with no engine folder next to it shows the setup page first. The engine
+  // archive (dist/UT-Stems-<version>-engine-<edition>.7z from the engine stage) is served from
+  // a local web server standing in for the GitHub release.
+  const engineDir = path.join(path.dirname(exe), 'engine');
+  const setup = !fs.existsSync(engineDir) && !/target[\\/]debug/.test(exe);
+  const edition = process.env.UT_STEMS_TEST_EDITION || 'cuda';
+  let files = null;
+  if (setup) {
+    const archive = path.join(root, 'dist', `UT-Stems-${VERSION}-engine-${edition}.7z`);
+    assert.ok(fs.existsSync(archive) && fs.existsSync(archive + '.sha256'), `${archive} and its .sha256 exist (build.ps1 -Stage engine)`);
+    files = spawn('python', ['-m', 'http.server', String(FILES_PORT), '--bind', '127.0.0.1'], {cwd: path.join(root, 'dist'), stdio: 'ignore'});
+  }
   const app = spawn(exe, [], {cwd: root, stdio: 'ignore',
-    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`}});
+    env: {...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${PORT}`,
+      UT_STEMS_ENGINE_BASE: `http://127.0.0.1:${FILES_PORT}/`}});
   let browser;
   try {
     await waitFor(() => fetch(`http://127.0.0.1:${PORT}/json/version`).then(r => r.ok), {timeout: 60000, what: 'the window'});
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
-    const page = await waitFor(() => browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1')), {what: 'the page'});
+    const page = await waitFor(() => browser.contexts().flatMap(c => c.pages()).find(p => /^(http:\/\/127\.0\.0\.1|tauri:\/\/|http:\/\/tauri\.localhost)/.test(p.url())), {what: 'the page'});
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const screenshot = name => page.screenshot({path: path.join(diagnostics, `tauri-${name}.png`)});
+
+    if (setup) {
+      await page.waitForSelector('#dl-button', {timeout: 60000});
+      await page.waitForFunction(() => document.querySelector('#graphics').textContent !== '…');
+      const status = await page.evaluate(() => window.__TAURI__.core.invoke('engine_status'));
+      console.log(`setup: graphics ${status.graphics.join(', ')} -> ${status.suggested}; installing ${edition}`);
+      await page.locator(`#edition [data-value="${edition}"]`).click();
+      await screenshot('setup');
+      await page.locator('#dl-button').click();
+      await page.waitForFunction(() => document.querySelector('#dl').dataset.state === 'run');
+      await page.waitForFunction(() => /Unpacking/.test(document.querySelector('#dl-eta').textContent), null, {timeout: 900000});
+      await screenshot('setup-unpacking');
+      // The shell starts the engine and brings the window to it.
+      await page.waitForURL(url => url.href.startsWith('http://127.0.0.1'), {timeout: 900000});
+      assert.ok(fs.existsSync(path.join(engineDir, 'ut-stems-engine.exe')), 'The engine was installed next to the exe');
+      assert.equal(JSON.parse(fs.readFileSync(path.join(engineDir, 'engine.json'), 'utf8')).edition, edition);
+    }
 
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'), null, {timeout: 60000});
     assert.ok(await page.evaluate(() => Boolean(window.desktop?.tauri)), 'The Tauri bridge is in place');
@@ -116,6 +148,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
   } finally {
     if (browser) await browser.close().catch(() => {});
     if (app.exitCode === null && app.signalCode === null) app.kill();
+    if (files) files.kill();
     for (const pid of engines()) { if (!before.includes(pid)) spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], {stdio: 'ignore'}); }
   }
 })();

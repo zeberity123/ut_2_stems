@@ -414,3 +414,56 @@ input.song-rename-input { position: absolute; left: 8px; top: 8px; width: calc(1
   .local-label, .ptrack.small { display: none; }
   .toasts { right: 12px; left: 12px; bottom: 56px; align-items: stretch; }
 }
+
+/* ---------------------------------------------------------------- first-start setup page */
+.setup-body { height: 100dvh; }
+.setup { flex: 1; min-height: 0; display: grid; place-items: center; padding: 24px; overflow-y: auto; }
+.setup-panel { width: min(620px, 100%); }
+.setup-panel h1 { font-family: var(--font-display); font-size: 26px; font-weight: 650; letter-spacing: -.035em; margin: 0 0 10px; }
+.setup-lead { font-size: 13px; line-height: 1.65; color: var(--ink-2); margin: 0 0 22px; }
+.setup-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.setup-facts .section-label { margin-bottom: 4px; }
+.setup-facts b { display: block; font-weight: 600; font-size: 12.5px; overflow-wrap: anywhere; }
+.setup-facts b.mono { font-size: 11.5px; color: var(--ink-2); }
+.setup .segmented button { height: 48px; }
+.setup-alt { margin-top: 14px; text-align: center; }
+.link-button { height: auto; padding: 0; border: 0; background: none; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); }
+.link-button:hover:not(:disabled) { background: none; border: 0; }
+
+/* #004 progress download button, in ink */
+.dl { display: flex; justify-content: center; margin-top: 22px; }
+.dl-btn { --p: 0; position: relative; width: 100%; max-width: 420px; height: 60px; border: 0; padding: 0; border-radius: 999px; background: var(--accent); color: var(--accent-ink); overflow: hidden; isolation: isolate; box-shadow: 0 22px 36px -22px var(--shadow-strong); transition: width .6s var(--ease), transform .5s var(--spring), background-color .5s var(--ease); }
+.dl-btn:hover:not(:disabled) { background: var(--accent); transform: translateY(-2px); }
+.dl-btn:active:not(:disabled) { transform: scale(.97); }
+.dl-idle, .dl-run, .dl-ok { position: absolute; inset: 0; display: flex; align-items: center; transition: opacity .35s var(--ease), transform .5s var(--ease); }
+.dl-idle { gap: 14px; padding: 0 22px 0 8px; }
+.dl-arw { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--accent-ink) 14%, transparent); overflow: hidden; }
+.dl-arw svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.3; stroke-linecap: round; stroke-linejoin: round; }
+.dl-arw .dl-a { transition: transform .5s var(--ease); }
+.dl-btn:hover .dl-arw .dl-a { animation: dl-bob 1s var(--ease) infinite; }
+@keyframes dl-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+.dl-idle b { font-size: 15px; font-weight: 650; letter-spacing: -.02em; }
+.dl-idle small { margin-left: auto; font-size: 12.5px; font-weight: 600; opacity: .55; font-family: var(--mono); }
+.dl-track { position: absolute; inset: 0; background: color-mix(in srgb, var(--accent) 80%, var(--page)); opacity: 0; transition: opacity .4s var(--ease); }
+.dl-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--p)); border-radius: inherit; }
+.dl-bar::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--accent-ink) 22%, transparent) 50%, transparent 70%); background-size: 220% 100%; animation: dl-shine 1.3s linear infinite; }
+@keyframes dl-shine { from { background-position: 120% 0; } to { background-position: -100% 0; } }
+.dl-run { justify-content: space-between; gap: 12px; padding: 0 24px; opacity: 0; transform: translateY(12px); }
+.dl-run b { font-size: 17px; font-weight: 700; font-family: var(--mono); letter-spacing: 0; }
+.dl-run small { font-size: 12px; font-weight: 600; opacity: .85; text-align: right; }
+.dl-ok { justify-content: center; gap: 10px; opacity: 0; transform: scale(.6); }
+.dl-ok i { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, currentColor 18%, transparent); }
+.dl-ok svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+.dl-ok path { stroke-dasharray: 18; stroke-dashoffset: 18; transition: stroke-dashoffset .45s var(--ease) .25s; }
+.dl-ok span { font-size: 15px; font-weight: 650; white-space: nowrap; max-width: 0; overflow: hidden; opacity: 0; transition: max-width .6s var(--ease), opacity .4s var(--ease); }
+.dl[data-state="run"] .dl-idle { opacity: 0; transform: translateY(-12px); }
+.dl[data-state="run"] .dl-arw .dl-a { transform: translateY(26px); }
+.dl[data-state="run"] .dl-track { opacity: 1; }
+.dl[data-state="run"] .dl-run { opacity: 1; transform: none; }
+.dl[data-state="fold"] .dl-idle, .dl[data-state="done"] .dl-idle { opacity: 0; }
+.dl[data-state="fold"] .dl-btn { width: 60px; background: var(--mint); color: var(--page); }
+.dl[data-state="fold"] .dl-bar { opacity: 0; }
+.dl[data-state="fold"] .dl-ok, .dl[data-state="done"] .dl-ok { opacity: 1; transform: none; }
+.dl[data-state="fold"] .dl-ok path, .dl[data-state="done"] .dl-ok path { stroke-dashoffset: 0; }
+.dl[data-state="done"] .dl-btn { background: var(--mint); color: var(--page); transition-timing-function: var(--spring); }
+.dl[data-state="done"] .dl-ok span { max-width: 200px; opacity: 1; }

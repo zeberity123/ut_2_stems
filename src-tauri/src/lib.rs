@@ -5,15 +5,19 @@
 //! talks to the engine directly; the shell only adds what a page cannot do itself: file and
 //! folder dialogs, the preferences file, dropped file paths, and stopping the engine on exit.
 //!
-//! From a source checkout (a debug build) the engine is `python -m ut_stems.server` in the
-//! repository; in the installed app it is `engine\ut-stems-engine.exe` next to the executable.
+//! The engine is `engine\ut-stems-engine.exe` next to the executable. When it is missing (the
+//! first start of the installed app) the window shows `web/setup.html`, which has the shell
+//! download and unpack the engine (see `engine.rs`); a debug build without an engine folder
+//! falls back to `python -m ut_stems.server` in the repository.
+
+mod engine;
 
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 use rand::RngCore;
@@ -25,8 +29,14 @@ const AUDIO_EXTENSIONS: [&str; 8] = ["mp3", "wav", "flac", "m4a", "aac", "ogg", 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// The running engine, killed when the app exits.
-struct Engine(Mutex<Option<Child>>);
+/// What the shell keeps while it runs.
+struct Shell {
+    engine: Mutex<Option<Child>>,
+    token: String,
+    /// The engine's origin once it runs; the window may only navigate there or to its own pages.
+    origin: Mutex<Option<String>>,
+    installing: Mutex<Option<Arc<AtomicBool>>>,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", default)]
@@ -63,7 +73,7 @@ fn get_preferences(app: AppHandle) -> Preferences {
         .unwrap_or_default()
 }
 
-/// Saves the preferences the page sends, after checking every field, the way the Electron shell did.
+/// Saves the preferences the page sends, after checking every field.
 #[tauri::command]
 fn set_preferences(app: AppHandle, values: serde_json::Value) -> Result<(), String> {
     let string = |key: &str, max: usize| values.get(key).and_then(|v| v.as_str()).map(|s| truncate(s, max)).unwrap_or_default();
@@ -113,44 +123,104 @@ async fn choose_folder(app: AppHandle, current: Option<String>) -> Option<String
     }).await.unwrap_or_default()
 }
 
+// ---------------------------------------------------------------- the engine on first start
+#[tauri::command]
+fn engine_status() -> engine::Status {
+    engine::status()
+}
+
+#[tauri::command]
+async fn choose_engine_file(app: AppHandle) -> Option<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().add_filter("Engine archive", &["7z"]).blocking_pick_file()
+            .and_then(|file| file.into_path().ok())
+            .map(|path| path.to_string_lossy().into_owned())
+    }).await.unwrap_or_default()
+}
+
+#[tauri::command]
+fn cancel_engine_install(shell: State<Shell>) {
+    if let Some(flag) = shell.installing.lock().unwrap().as_ref() { flag.store(true, Ordering::Relaxed); }
+}
+
+/// Installs the engine, then starts it and takes the window to it.
+#[tauri::command]
+async fn install_engine(app: AppHandle, edition: String, file: Option<String>) -> Result<(), String> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    {
+        let shell = app.state::<Shell>();
+        let mut installing = shell.installing.lock().unwrap();
+        if installing.is_some() { return Err("An installation is already running.".into()); }
+        *installing = Some(cancel.clone());
+    }
+    let handle = app.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let file = file.filter(|f| !f.is_empty()).map(PathBuf::from);
+        engine::install(&handle, &edition, file, cancel)
+    }).await.map_err(|e| e.to_string())?;
+    *app.state::<Shell>().installing.lock().unwrap() = None;
+    match result {
+        Ok(manifest) => {
+            engine::app_data_log(&app, &format!("installed engine {} {}", manifest.version, manifest.edition));
+            let handle = app.clone();
+            std::thread::spawn(move || match start_engine(&handle) {
+                Ok(port) => {
+                    let url = engine_url(&handle, port);
+                    if let Some(window) = handle.get_webview_window("main") { let _ = window.navigate(url); }
+                }
+                Err(detail) => fail(&handle, &detail),
+            });
+            Ok(())
+        }
+        Err(detail) => { engine::app_data_log(&app, &format!("install failed: {detail}")); Err(detail) }
+    }
+}
+
+// ---------------------------------------------------------------- the engine process
+enum EngineKind { Installed(PathBuf), Source(PathBuf), Missing }
+
 /// Where the engine is: the installed `engine\ut-stems-engine.exe`, or the repository for a debug build.
-fn engine_command(app: &AppHandle) -> Result<(Command, bool), String> {
-    let exe_dir = std::env::current_exe().ok().and_then(|exe| exe.parent().map(Path::to_path_buf));
-    let mut candidates = vec![];
-    if let Some(dir) = &exe_dir { candidates.push(dir.join("engine").join("ut-stems-engine.exe")); }
-    if let Ok(dir) = app.path().resource_dir() { candidates.push(dir.join("engine").join("ut-stems-engine.exe")); }
-    if let Some(engine) = candidates.into_iter().find(|path| path.is_file()) {
-        let mut command = Command::new(&engine);
-        command.current_dir(engine.parent().unwrap());
-        return Ok((command, true));
+fn find_engine() -> EngineKind {
+    if let Some(dir) = engine::engine_dir() {
+        if dir.join("ut-stems-engine.exe").is_file() { return EngineKind::Installed(dir); }
     }
     if cfg!(debug_assertions) {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf();
-        if root.join("ut_stems").join("server.py").is_file() {
-            let python = std::env::var("UT_STEMS_PYTHON").unwrap_or_else(|_| "python".into());
-            let mut command = Command::new(python);
-            command.args(["-m", "ut_stems.server"]).current_dir(root);
-            return Ok((command, false));
-        }
+        if root.join("ut_stems").join("server.py").is_file() { return EngineKind::Source(root); }
     }
-    Err("The processing engine is missing (engine\\ut-stems-engine.exe). Reinstall UT Stems.".into())
+    EngineKind::Missing
+}
+
+fn engine_url(app: &AppHandle, port: u16) -> tauri::Url {
+    let shell = app.state::<Shell>();
+    format!("http://127.0.0.1:{port}/#{}", shell.token).parse().expect("engine url")
 }
 
 /// Starts the engine and returns its port once it prints it.
-fn start_engine(app: &AppHandle, token: &str) -> Result<(Child, u16), String> {
-    let (mut command, packaged) = engine_command(app)?;
-    command.env("UT_STEMS_TOKEN", token).env("PYTHONIOENCODING", "utf-8").env("PYTHONUNBUFFERED", "1")
-        .env("UT_STEMS_PARENT_PID", std::process::id().to_string())
-        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
-    if packaged {
-        // yt-dlp needs a JavaScript runtime for YouTube; the installed app carries one in the engine folder.
-        if let Some(dir) = command.get_current_dir().map(Path::to_path_buf) {
+fn start_engine(app: &AppHandle) -> Result<u16, String> {
+    let (mut command, packaged) = match find_engine() {
+        EngineKind::Installed(dir) => {
+            let mut command = Command::new(dir.join("ut-stems-engine.exe"));
+            command.current_dir(&dir);
+            // yt-dlp needs a JavaScript runtime for YouTube; the engine folder carries one.
             let path = std::env::var_os("PATH").unwrap_or_default();
-            let mut paths = vec![dir];
+            let mut paths = vec![dir.clone()];
             paths.extend(std::env::split_paths(&path));
             if let Ok(joined) = std::env::join_paths(paths) { command.env("PATH", joined); }
+            (command, true)
         }
-    }
+        EngineKind::Source(root) => {
+            let python = std::env::var("UT_STEMS_PYTHON").unwrap_or_else(|_| "python".into());
+            let mut command = Command::new(python);
+            command.args(["-m", "ut_stems.server"]).current_dir(root);
+            (command, false)
+        }
+        EngineKind::Missing => return Err("The processing engine is missing. Start UT Stems again to set it up.".into()),
+    };
+    let shell = app.state::<Shell>();
+    command.env("UT_STEMS_TOKEN", &shell.token).env("PYTHONIOENCODING", "utf-8").env("PYTHONUNBUFFERED", "1")
+        .env("UT_STEMS_PARENT_PID", std::process::id().to_string())
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
     #[cfg(windows)]
     { use std::os::windows::process::CommandExt; command.creation_flags(CREATE_NO_WINDOW); }
     let mut child = command.spawn().map_err(|e| {
@@ -161,8 +231,8 @@ fn start_engine(app: &AppHandle, token: &str) -> Result<(Child, u16), String> {
 
     let stdout = child.stdout.take().ok_or("no engine output")?;
     let stderr = child.stderr.take().ok_or("no engine output")?;
-    let (sender, receiver) = mpsc::channel::<Result<u16, String>>();
-    let errors = std::sync::Arc::new(Mutex::new(String::new()));
+    let (sender, receiver) = mpsc::channel::<u16>();
+    let errors = Arc::new(Mutex::new(String::new()));
     let errors_reader = errors.clone();
     let mut log = app.path().app_config_dir().ok().and_then(|dir| {
         fs::create_dir_all(&dir).ok()?;
@@ -184,15 +254,19 @@ fn start_engine(app: &AppHandle, token: &str) -> Result<(Child, u16), String> {
             if announced { continue; }
             if let Ok(message) = serde_json::from_str::<serde_json::Value>(&line) {
                 if let Some(port) = message.get("port").and_then(|p| p.as_u64()) {
-                    let _ = sender.send(Ok(port as u16));
+                    let _ = sender.send(port as u16);
                     announced = true;
                 }
             }
         }
     });
     match receiver.recv_timeout(Duration::from_secs(30)) {
-        Ok(Ok(port)) => Ok((child, port)),
-        _ => {
+        Ok(port) => {
+            *shell.engine.lock().unwrap() = Some(child);
+            *shell.origin.lock().unwrap() = Some(format!("http://127.0.0.1:{port}"));
+            Ok(port)
+        }
+        Err(_) => {
             let _ = child.kill();
             let text = errors.lock().unwrap().trim().to_string();
             Err(if text.is_empty() { "The processing engine did not start in time.".into() } else { text })
@@ -200,8 +274,8 @@ fn start_engine(app: &AppHandle, token: &str) -> Result<(Child, u16), String> {
     }
 }
 
-fn stop_engine(engine: &State<Engine>) {
-    if let Some(mut child) = engine.0.lock().unwrap().take() {
+fn stop_engine(shell: &State<Shell>) {
+    if let Some(mut child) = shell.engine.lock().unwrap().take() {
         #[cfg(windows)]
         {
             // The engine may have ffmpeg running; take the whole tree down.
@@ -214,6 +288,7 @@ fn stop_engine(engine: &State<Engine>) {
     }
 }
 
+// ---------------------------------------------------------------- the window
 /// `window.desktop`, the same bridge the page had under Electron, now over Tauri's IPC.
 const BRIDGE: &str = r#"
 (() => {
@@ -234,19 +309,23 @@ const BRIDGE: &str = r#"
 })();
 "#;
 
-fn open_window(app: &AppHandle, port: u16, token: &str) -> tauri::Result<()> {
-    let url: tauri::Url = format!("http://127.0.0.1:{port}/#{token}").parse().expect("engine url");
-    let origin = format!("http://127.0.0.1:{port}");
+fn open_window(app: &AppHandle, url: WebviewUrl) -> tauri::Result<()> {
     let theme = get_preferences(app.clone()).theme;
     let background = if theme == "light" { tauri::window::Color(0xF4, 0xF2, 0xEE, 255) } else { tauri::window::Color(0x0B, 0x0C, 0x10, 255) };
-    WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+    let guard = app.clone();
+    WebviewWindowBuilder::new(app, "main", url)
         .title("UT Stems")
         .inner_size(1320.0, 860.0)
         .min_inner_size(390.0, 620.0)
         .background_color(background)
         .visible(false)
         .initialization_script(BRIDGE)
-        .on_navigation(move |url| url.as_str().starts_with(&origin))
+        .on_navigation(move |url| {
+            // Only the engine's page and the shell's own pages; nothing from the internet.
+            let text = url.as_str();
+            text.starts_with("tauri://") || text.starts_with("http://tauri.localhost")
+                || guard.state::<Shell>().origin.lock().unwrap().as_ref().map(|origin| text.starts_with(origin)).unwrap_or(false)
+        })
         .on_page_load(|window, payload| {
             if payload.event() == tauri::webview::PageLoadEvent::Finished { let _ = window.show(); }
         })
@@ -262,6 +341,9 @@ fn fail(app: &AppHandle, detail: &str) {
 }
 
 pub fn run() {
+    let mut bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut bytes);
+    let token: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -270,26 +352,35 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .manage(Engine(Mutex::new(None)))
-        .invoke_handler(tauri::generate_handler![get_preferences, set_preferences, choose_files, choose_folder])
+        .manage(Shell { engine: Mutex::new(None), token, origin: Mutex::new(None), installing: Mutex::new(None) })
+        .invoke_handler(tauri::generate_handler![
+            get_preferences, set_preferences, choose_files, choose_folder,
+            engine_status, choose_engine_file, cancel_engine_install, install_engine
+        ])
         .setup(|app| {
             let handle = app.handle().clone();
-            let mut bytes = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut bytes);
-            let token: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
-            // The engine takes a moment to start; the window appears once it is ready.
-            std::thread::spawn(move || match start_engine(&handle, &token) {
-                Ok((child, port)) => {
-                    *handle.state::<Engine>().0.lock().unwrap() = Some(child);
-                    if let Err(e) = open_window(&handle, port, &token) { fail(&handle, &format!("Could not open the window: {e}")); }
+            // The engine takes a moment to start; the window appears once a page is ready.
+            std::thread::spawn(move || {
+                let needs_setup = match find_engine() {
+                    EngineKind::Missing => true,
+                    EngineKind::Installed(dir) => engine::installed(&dir).map(|m| m.version != engine::VERSION).unwrap_or(true),
+                    EngineKind::Source(_) => false,
+                };
+                let page = if needs_setup {
+                    Ok(WebviewUrl::App("setup.html".into()))
+                } else {
+                    start_engine(&handle).map(|port| WebviewUrl::External(engine_url(&handle, port)))
+                };
+                match page {
+                    Ok(url) => if let Err(e) = open_window(&handle, url) { fail(&handle, &format!("Could not open the window: {e}")); },
+                    Err(detail) => fail(&handle, &detail),
                 }
-                Err(detail) => fail(&handle, &detail),
             });
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("error while building UT Stems")
         .run(|app, event| {
-            if let RunEvent::Exit = event { stop_engine(&app.state::<Engine>()); }
+            if let RunEvent::Exit = event { stop_engine(&app.state::<Shell>()); }
         });
 }

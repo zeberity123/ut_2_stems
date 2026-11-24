@@ -21,29 +21,31 @@ Everything runs on your own PC. It comes as a desktop app and as a command.
 The default model is BS-RoFormer SW; HT-Demucs 6s is available as a faster alternative.
 On an RTX 3060 a 4-minute song takes about a minute and uses under 4 GB of VRAM.
 
-## Download (no installation)
+## Download
 
-The [latest release](https://github.com/zeberity123/ut_2_stems/releases/latest) has the app as a
-folder with everything inside: the window, Python, PyTorch, the CUDA libraries and ffmpeg. Nothing
-else needs to be installed, not even Python or the CUDA toolkit.
+The [latest release](https://github.com/zeberity123/ut_2_stems/releases/latest) has one small
+installer for every PC and, next to it, the processing engine as one archive per edition:
 
-| Download | For | Size |
+| File | What it is | Size |
 |---|---|---|
-| `UT-Stems-<version>-win64-cuda.7z.001` | PCs with an NVIDIA GPU (GTX 10 series or newer, current driver) | about 1.7 GB |
-| `UT-Stems-<version>-win64-xpu.7z.001` | PCs with an Intel GPU: Arc A/B series, or the Arc graphics in Core Ultra laptops | about 1.2 GB |
-| `UT-Stems-<version>-win64-cpu.zip` | everything else (no GPU, or an AMD GPU) | about 410 MB |
+| `UT-Stems-<version>-win64-setup.exe` | the app; installs for the current user, no administrator rights | about 2 MB |
+| `UT-Stems-<version>-engine-cuda.7z` | engine for PCs with an NVIDIA GPU (GTX 10 series or newer, current driver) | about 1.7 GB |
+| `UT-Stems-<version>-engine-xpu.7z` | engine for PCs with an Intel GPU: Arc A/B series, or the Arc graphics in Core Ultra laptops | about 1.2 GB |
+| `UT-Stems-<version>-engine-cpu.7z` | engine for everything else (no GPU, or an AMD GPU) | about 400 MB |
 
+1. Run the installer. Windows SmartScreen may warn because the program is not signed:
+   **More info > Run anyway**.
+2. Start UT Stems. On the first start it shows which graphics card it found, suggests the engine
+   for it, and downloads and unpacks that engine (Python, PyTorch, the CUDA or oneAPI runtime and
+   ffmpeg: about 4 GB on disk). That happens once; nothing else needs to be installed.
+
+Without internet on that PC, or to save the download: put the engine's `.7z` file in that PC's
+Downloads folder, or choose it with **Use a downloaded archive…** on the first-start page.
 Every edition also runs on the CPU when its GPU is not found, so the CUDA edition is a safe choice
-for any PC; the others are just smaller.
+for any PC; the others are just smaller. The engine lives in `engine\` next to the app
+(`%LOCALAPPDATA%\UT Stems`) and is removed with it when the app is uninstalled.
 
-1. Download the file (if an edition has several parts, `.001`, `.002`, …, put them in the same folder).
-2. Extract: right-click the `.zip` > **Extract all**, or for a `.7z.001` file install
-   [7-Zip](https://www.7-zip.org/) and right-click it > **7-Zip > Extract here**. GitHub limits files to
-   2 GB, which is why the GPU editions are 7z files, possibly in parts.
-3. Open the `UT Stems` folder and double-click **UT Stems.exe**. Windows SmartScreen may warn because
-   the program is not signed: **More info > Run anyway**.
-
-The command line is in the same folder: `ut-stems.cmd "song.mp3" -o D:\stems`.
+The command line is in the same folder: `engine\ut-stems.exe "song.mp3" -o D:\stems`.
 
 **GPU or CPU.** Nothing besides the graphics driver needs to be installed: the CUDA edition carries
 the CUDA runtime and the XPU edition carries Intel's oneAPI runtime. The header shows which device is

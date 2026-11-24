@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; frame-src 'none'"
     }
   },
   "bundle": {
@@ -18,11 +18,12 @@
     "targets": ["nsis"],
     "publisher": "zeberity123",
     "shortDescription": "Split a song into MP3 stems",
-    "longDescription": "Splits a song (an audio file or a YouTube link) into MP3 stems: vocals, bass, drums, guitars, piano and others.",
+    "longDescription": "Splits a song (an audio file or a YouTube link) into MP3 stems: vocals, bass, drums, guitars, piano and others. The processing engine is downloaded on first start.",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
     "windows": {
       "nsis": {
         "installMode": "currentUser",
+        "installerHooks": "./windows/hooks.nsi",
         "languages": ["English", "Korean"],
         "displayLanguageSelector": false
       }
