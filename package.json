@@ -1,7 +1,7 @@
 {
   "name": "ut-stems",
   "productName": "UT Stems",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "Desktop app that splits a song (file or YouTube link) into stems.",
   "main": "src-tauri/tauri.conf.json",

@@ -1,6 +1,6 @@
 [package]
 name = "ut-stems"
-version = "0.6.1"
+version = "0.6.2"
 description = "Split a song into MP3 stems: vocals, bass, drums, guitars, piano, others"
 authors = ["zeberity123"]
 edition = "2021"
