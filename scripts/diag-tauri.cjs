@@ -17,7 +17,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     await sleep(1500);
     const pages = browser.contexts().flatMap(c => c.pages());
     console.log('pages:', pages.map(p => p.url()));
-    const page = pages.find(p => p.url().startsWith('http://127.0.0.1')) || pages[0];
+    const page = pages.find(p => /^http:\/\/tauri\.localhost\/(index\.html)?$|^http:\/\/127\.0\.0\.1/.test(p.url())) || pages[0];
     const logs = [];
     page.on('console', m => logs.push(`[${m.type()}] ${m.text()}`));
     page.on('pageerror', e => logs.push(`[pageerror] ${e.message}`));

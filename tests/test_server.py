@@ -290,3 +290,18 @@ def test_results_and_audio_streaming(server, tmp_path):
     result.stems.append(StemFile("drums", wav, -6.0, [0.5]))
     status, body, headers = call(server, "/api/audio?id=7&stem=drums")
     assert status == 200 and body == b"RIFF" and headers["Content-Type"] == "audio/wav"
+
+
+def test_the_shell_origin_may_call_the_api_from_its_own_page(server):
+    """The desktop shell serves the page from http://tauri.localhost and calls the engine from there."""
+    status, body, headers = call(server, "/api/state", headers={"Origin": "http://tauri.localhost"})
+    assert status == 200 and headers["Access-Control-Allow-Origin"] == "http://tauri.localhost"
+    assert "X-Session-Token" in headers["Access-Control-Allow-Headers"]
+    # the preflight a browser sends before a POST with our headers
+    request = urllib.request.Request(f"http://127.0.0.1:{server.server_port}/api/command", method="OPTIONS",
+                                     headers={"Origin": "http://tauri.localhost", "Access-Control-Request-Method": "POST"})
+    with urllib.request.urlopen(request, timeout=10) as response:
+        assert response.status == 204 and "POST" in response.headers["Access-Control-Allow-Methods"]
+    # any other origin gets no such permission
+    status, body, headers = call(server, "/api/state", headers={"Origin": "https://example.com"})
+    assert status == 200 and headers.get("Access-Control-Allow-Origin") is None

@@ -17,6 +17,7 @@
     "allow-check-update",
     "allow-pending-update",
     "allow-install-update",
-    "allow-open-release-page"
+    "allow-open-release-page",
+    "allow-engine-info"
   ]
 }

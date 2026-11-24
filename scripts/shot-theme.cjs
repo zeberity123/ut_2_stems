@@ -22,7 +22,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     for (let i = 0; i < 200; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/json/version`)).ok) break; } catch {} await sleep(300); }
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
     await sleep(1500);
-    const page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1'));
+    const page = browser.contexts().flatMap(c => c.pages()).find(p => /^http:\/\/tauri\.localhost\/(index\.html)?$|^http:\/\/127\.0\.0\.1/.test(p.url()));
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'), null, {timeout: 60000});
     await page.evaluate(t => { document.documentElement.dataset.theme = t; document.querySelector('#theme').dataset.theme = t; }, theme);
     await page.locator('#output').fill(path.join(diagnostics, 'theme-output'));

@@ -41,7 +41,7 @@ const running = () => execFileSync('powershell', ['-NoProfile', '-Command', "@(G
     for (let i = 0; i < 200; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/json/version`)).ok) break; } catch {} await sleep(300); }
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
     await sleep(1500);
-    const page = browser.contexts().flatMap(c => c.pages()).find(p => p.url().startsWith('http://127.0.0.1'));
+    const page = browser.contexts().flatMap(c => c.pages()).find(p => /^http:\/\/tauri\.localhost\/(index\.html)?$|^http:\/\/127\.0\.0\.1/.test(p.url()));
     assert.ok(page, 'the app page (an engine is in place)');
     await page.waitForFunction(() => !document.querySelector('#update').hidden, null, {timeout: 60000});
     const text = await page.locator('#update-text').textContent();

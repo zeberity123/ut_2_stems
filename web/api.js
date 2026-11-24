@@ -1,6 +1,9 @@
 // All access to the local server and the desktop shell lives here.
+// In the desktop app the page comes from the shell and the engine runs elsewhere on this PC
+// (``connect`` asks the shell where); in a browser the engine serves the page itself.
 export class StemsAPI {
   constructor() {
+    this.base = '';
     this.token = location.hash.slice(1) || sessionStorage.getItem('ut-stems-session') || '';
     if (this.token) sessionStorage.setItem('ut-stems-session', this.token);
     history.replaceState(null, '', location.pathname);
@@ -8,11 +11,15 @@ export class StemsAPI {
     // In UT Stems Client the songs are separated on another PC and saved on this one.
     this.remote = Boolean(this.desktop?.remote);
   }
+  async connect() {
+    const engine = this.desktop?.engineInfo ? await this.desktop.engineInfo() : null;
+    if (engine?.url) { this.base = engine.url.replace(/\/$/, ''); this.token = engine.token; }
+  }
   url(path, values = {}) {
-    return `/api/${path}?${new URLSearchParams({token: this.token, ...values})}`;
+    return `${this.base}/api/${path}?${new URLSearchParams({token: this.token, ...values})}`;
   }
   async request(path, options = {}) {
-    const response = await fetch(`/api/${path}`, {
+    const response = await fetch(`${this.base}/api/${path}`, {
       ...options, headers: {'X-Session-Token': this.token, ...options.headers},
     });
     const result = await response.json();

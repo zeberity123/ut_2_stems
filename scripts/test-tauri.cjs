@@ -92,7 +92,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
       await page.waitForFunction(() => /Unpacking/.test(document.querySelector('#dl-eta').textContent), null, {timeout: 900000});
       await screenshot('setup-unpacking');
       // The shell starts the engine and brings the window to it.
-      await page.waitForURL(url => url.href.startsWith('http://127.0.0.1'), {timeout: 900000});
+      await page.waitForURL(url => /^http:\/\/tauri\.localhost\/(index\.html)?$/.test(url.href), {timeout: 900000});
       assert.ok(fs.existsSync(path.join(engineDir, 'ut-stems-engine.exe')), 'The engine was installed next to the exe');
       assert.equal(JSON.parse(fs.readFileSync(path.join(engineDir, 'engine.json'), 'utf8')).edition, edition);
     }
@@ -148,7 +148,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
     // Only our own origin may be navigated to.
     await page.evaluate(() => { location.href = 'https://example.com/'; }).catch(() => {});
     await page.waitForTimeout(800);
-    assert.ok(page.url().startsWith('http://127.0.0.1'), 'Navigation away is blocked');
+    assert.ok(/^http:\/\/tauri\.localhost\//.test(page.url()), 'Navigation away is blocked');
 
     assert.deepEqual(errors, [], 'No page errors');
     const during = engines().filter(pid => !before.includes(pid));

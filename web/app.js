@@ -632,6 +632,7 @@ async function separate() {
 
 // ---------------------------------------------------------------- start
 async function start() {
+  await api.connect();
   const preferences = await api.preferences();
   state = await api.state();
   buildChips(state.stems);

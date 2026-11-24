@@ -255,9 +255,8 @@ async fn install_engine(app: AppHandle, edition: String, file: Option<String>) -
             engine::app_data_log(&app, &format!("installed engine {} {}", manifest.version, manifest.edition));
             let handle = app.clone();
             std::thread::spawn(move || match start_engine(&handle) {
-                Ok(port) => {
-                    let url = engine_url(&handle, port);
-                    if let Some(window) = handle.get_webview_window("main") { let _ = window.navigate(url); }
+                Ok(_) => {
+                    if let Some(window) = handle.get_webview_window("main") { let _ = window.navigate(app_page("index.html")); }
                 }
                 Err(detail) => fail(&handle, &detail),
             });
@@ -282,9 +281,19 @@ fn find_engine() -> EngineKind {
     EngineKind::Missing
 }
 
-fn engine_url(app: &AppHandle, port: u16) -> tauri::Url {
-    let shell = app.state::<Shell>();
-    format!("http://127.0.0.1:{port}/#{}", shell.token).parse().expect("engine url")
+/// One of the shell's own pages (`web/`), bundled in the executable.
+fn app_page(name: &str) -> tauri::Url {
+    let base = if cfg!(windows) { "http://tauri.localhost/" } else { "tauri://localhost/" };
+    format!("{base}{name}").parse().expect("app page url")
+}
+
+#[derive(Serialize, Clone)]
+struct EngineInfo { url: String, token: String }
+
+/// Where the engine answers; the page calls its API there.
+#[tauri::command]
+fn engine_info(shell: State<Shell>) -> Option<EngineInfo> {
+    shell.origin.lock().unwrap().as_ref().map(|origin| EngineInfo { url: origin.clone(), token: shell.token.clone() })
 }
 
 /// Starts the engine and returns its port once it prints it.
@@ -395,6 +404,7 @@ const BRIDGE: &str = r#"
     chooseFolder: current => invoke('choose_folder', {current: current || null}),
     pathForFile: () => '',
     onDrop: listener => { dropListeners.push(listener); },
+    engineInfo: () => invoke('engine_info'),
     pendingUpdate: () => invoke('pending_update'),
     checkUpdate: () => invoke('check_update'),
     installUpdate: () => invoke('install_update'),
@@ -459,7 +469,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_preferences, set_preferences, choose_files, choose_folder,
             engine_status, choose_engine_file, cancel_engine_install, install_engine,
-            check_update, pending_update, install_update, open_release_page
+            check_update, pending_update, install_update, open_release_page, engine_info
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -473,7 +483,7 @@ pub fn run() {
                 let page = if needs_setup {
                     Ok(WebviewUrl::App("setup.html".into()))
                 } else {
-                    start_engine(&handle).map(|port| WebviewUrl::External(engine_url(&handle, port)))
+                    start_engine(&handle).map(|_| WebviewUrl::App("index.html".into()))
                 };
                 match page {
                     Ok(url) => if let Err(e) = open_window(&handle, url) { fail(&handle, &format!("Could not open the window: {e}")); } else { check_for_update_later(handle.clone()); },

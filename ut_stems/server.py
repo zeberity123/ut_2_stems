@@ -386,9 +386,28 @@ class Workspace:
             song.upload = None
 
 
+# The desktop shell serves the page from its own origin and the page calls the engine from there.
+SHELL_ORIGINS = ("http://tauri.localhost", "https://tauri.localhost", "tauri://localhost")
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     timeout = 300  # an idle or stalled connection is dropped
+
+    def cors(self):
+        """Let the shell's page (and nothing else) call the API from its own origin."""
+        origin = self.headers.get("Origin", "")
+        if origin in SHELL_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Headers", "X-Session-Token, Content-Type")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Vary", "Origin")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.cors()
+        self.send_header("Content-Length", "0")
+        self.end_headers()
     unread = 0  # bytes of the request body not read yet (None: unknown)
 
     def log_message(self, *args):
@@ -397,6 +416,7 @@ class Handler(BaseHTTPRequestHandler):
     def respond(self, status: int, data, content_type: str = "application/json"):
         body = json.dumps(data).encode("utf-8") if content_type == "application/json" else data
         self.send_response(status)
+        self.cors()
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
@@ -429,6 +449,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         else:
             self.send_response(200)
+        self.cors()
         self.send_header("Content-Type", content_type)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
