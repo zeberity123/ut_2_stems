@@ -719,6 +719,11 @@ async function start() {
     $('stage').classList.toggle('is-drag', on);
     $('drop-hint').hidden = !on || !$('empty').hidden;
   };
+  api.onDrop(event => {
+    if (event.type === 'enter' || event.type === 'over') dragging(true);
+    else if (event.type === 'leave') dragging(false);
+    else if (event.type === 'drop') { dragging(false); if (event.paths?.length) addSources(event.paths); }
+  });
   window.addEventListener('dragenter', event => { event.preventDefault(); dragDepth += 1; dragging(true); });
   window.addEventListener('dragover', event => { event.preventDefault(); if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'; });
   window.addEventListener('dragleave', () => { dragDepth -= 1; if (dragDepth <= 0) { dragDepth = 0; dragging(false); } });

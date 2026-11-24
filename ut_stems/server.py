@@ -561,7 +561,32 @@ def make_server(host: str = "127.0.0.1", port: int = 0, token: str | None = None
     return server
 
 
+def watch_parent() -> None:
+    """Exit when the process named in UT_STEMS_PARENT_PID (the desktop window) is gone, so that a
+    window that crashed or was killed never leaves the engine running."""
+    try:
+        pid = int(os.environ.get("UT_STEMS_PARENT_PID") or 0)
+    except ValueError:
+        pid = 0
+    if not pid or sys.platform != "win32":
+        return
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+    if not handle:
+        print(f"cannot watch the window process {pid}: error {kernel32.GetLastError()}", file=sys.stderr, flush=True)
+        return
+    print(f"watching the window process {pid}", file=sys.stderr, flush=True)
+
+    def wait():
+        kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)
+        os._exit(0)
+
+    threading.Thread(target=wait, daemon=True).start()
+
+
 def main(argv: list[str] | None = None) -> None:
+    watch_parent()
     parser = argparse.ArgumentParser(prog="python -m ut_stems.server")
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--open", action="store_true", help="open the interface in the browser")

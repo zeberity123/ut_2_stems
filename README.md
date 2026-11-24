@@ -99,7 +99,8 @@ The repository holds only code. Songs, separated stems and model files are never
 
 ### Desktop app
 
-Double-click `run.bat`.
+Double-click `run.bat`. It opens the Tauri window if it has been built (`cargo build` in
+`src-tauri`), otherwise the Electron window (`npm install`), otherwise the interface in your browser.
 
 1. Paste a YouTube link, choose files, or drop files on the window.
 2. Select the stems you want.
@@ -201,7 +202,8 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | Client window for other PCs | `desktop/client.cjs`, `desktop/setup.html` |
 | Interface | `web/` (plain HTML, CSS and JS; light and dark) |
 | Interactive parts of the interface | ported from [Lucian UX/UI Prompt](https://lucianlabs.dev/uxui-prompt/) (MIT), see `web/styles.css` |
-| Desktop shell | `desktop/` (Electron) |
+| Desktop shell | `src-tauri/` (Rust, Tauri 2, the WebView2 that comes with Windows) |
+| Older desktop shell and the remote client | `desktop/` (Electron; kept for reference, not packaged any more) |
 | Standalone build | `packaging/` (PyInstaller spec, Electron packager, `build.ps1`) |
 
 The app structure follows [yt_to_score](https://github.com/zeberity123/yt_to_score); the YouTube audio
@@ -218,9 +220,13 @@ a choice the app follows Windows.
 ```
 python -m pytest             fast tests, no model needed
 python -m pytest -m slow     separation on a short clip, needs the GPU
-npm run test:desktop         launches the app, queues two clips, checks the list and the mixer
+npm run test:tauri           the Tauri window: separates a clip, renames it, closes, engine stops
+npm run test:desktop         the Electron window: queues two clips, checks the list and the mixer
 npm run test:client          server + client: registers, sends a clip, saves, renames, is removed
 ```
+
+`test:tauri` drives the WebView2 window through Playwright over the DevTools protocol; set
+`UT_STEMS_TEST_APP` to an installed `UT Stems.exe` to test the installed app instead of the debug build.
 
 ## Building the standalone app
 
@@ -236,12 +242,14 @@ packaging\build.ps1 -Edition cpu -Python C:\envs\cpu\Scripts\python.exe  # a Pyt
 `packaging\build.ps1 -Stage client` builds only UT Stems Client (`dist\UT-Stems-Client-<version>-win64.zip`),
 which needs neither Python nor an edition.
 
-The result is `dist\UT-Stems-<version>-win64-<edition>\UT Stems\` plus the archive next to it.
-Inside, `resources\engine\` holds the Python side as `ut-stems-engine.exe` (the local server) and
-`ut-stems.exe` (the command line), built from `packaging\ut_stems.spec`; the window is Electron with
-the engine folder dropped into `resources\`. When packaged, the window runs the engine instead of
-`python -m ut_stems.server`, and lends itself to yt-dlp as the Node.js runtime that YouTube
-downloads need.
+The result is `dist\UT-Stems-<version>-win64-<edition>-setup.exe`, an NSIS installer that installs
+for the current user (no administrator rights). It is built in two stages: `engine` makes the Python
+side with PyInstaller (`ut-stems-engine.exe`, the local server, and `ut-stems.exe`, the command line,
+from `packaging\ut_stems.spec`, plus ffmpeg) and `tauri` builds the window with `tauri build` and
+puts the engine folder inside the installer as `engine\` next to the executable. The window starts
+the engine with a session token and opens its page; the engine exits on its own if the window goes
+away. The window itself is about 10 MB: Tauri uses the WebView2 runtime that is part of Windows 10/11
+instead of shipping a browser.
 
 ## Notes
 

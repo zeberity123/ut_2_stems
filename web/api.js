@@ -29,6 +29,8 @@ export class StemsAPI {
   async chooseFiles() { return (await this.desktop?.chooseFiles()) ?? []; }
   async chooseFolder(current) { return this.desktop?.chooseFolder(current) ?? null; }
   pathForFile(file) { return this.desktop?.pathForFile(file) ?? ''; }
+  // Tauri reports dragged files with their paths; Electron goes through the HTML drop event.
+  onDrop(listener) { if (this.desktop?.onDrop) { this.desktop.onDrop(listener); return true; } return false; }
   async preferences() { return (await this.desktop?.getPreferences()) ?? {}; }
   savePreferences(values) { return this.desktop?.setPreferences(values); }
   // UT Stems Client only

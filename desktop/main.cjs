@@ -28,7 +28,7 @@ else {
 
 async function start() {
   const token = crypto.randomBytes(32).toString('hex');
-  const env = {...process.env, UT_STEMS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1'};
+  const env = {...process.env, UT_STEMS_TOKEN: token, PYTHONIOENCODING: 'utf-8', PYTHONUNBUFFERED: '1', UT_STEMS_PARENT_PID: String(process.pid)};
   // The packaged app ships the processing engine (Python, PyTorch and ffmpeg) in
   // resources/engine. From a source checkout it runs in the default Python instead.
   const engineDir = path.join(process.resourcesPath, 'engine');

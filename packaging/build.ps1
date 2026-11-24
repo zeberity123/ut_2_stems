@@ -3,11 +3,11 @@
   Builds the standalone Windows app: dist\UT-Stems-<version>-win64-<edition>\UT Stems\ and its archive.
 
 .DESCRIPTION
-  Stages (default: all):
+  Stages (default: all = engine, tauri):
     engine    PyInstaller folder with ut-stems-engine.exe, ut-stems.exe, the libraries and ffmpeg
-    electron  the desktop window (needs Node.js; downloads @electron/packager with npx)
-    assemble  puts the engine into the window's resources folder and adds ut-stems.cmd
-    archive   7-Zip: one .zip for the cpu edition, 1.9 GB .7z volumes for the cuda and xpu editions
+    tauri     the installer: the Tauri window with the engine inside -> dist\UT-Stems-<version>-win64-<edition>-setup.exe
+              (needs Rust and Node.js; `npm install` first)
+    electron  (older path) the Electron window; assemble puts the engine next to it; archive zips it
     client    UT Stems Client only (no engine, any PC): dist\UT-Stems-Client-<version>-win64.zip.
               Not part of 'all':  packaging\build.ps1 -Stage client
 
@@ -20,12 +20,12 @@
 param(
   [ValidateSet('cuda', 'xpu', 'cpu')] [string]$Edition = 'cuda',
   [string]$Python = 'python',
-  [string[]]$Stage = @('all'),   # any of: all, engine, electron, assemble, archive, client (comma separated)
+  [string[]]$Stage = @('all'),   # any of: all, engine, tauri, electron, assemble, archive, client (comma separated)
   [string]$SevenZip = "$env:ProgramFiles\7-Zip\7z.exe"
 )
 $ErrorActionPreference = 'Stop'
 $Stage = @($Stage | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-foreach ($s in $Stage) { if ($s -notin 'all', 'engine', 'electron', 'assemble', 'archive', 'client') { throw "Unknown stage: $s" } }
+foreach ($s in $Stage) { if ($s -notin 'all', 'engine', 'tauri', 'electron', 'assemble', 'archive', 'client') { throw "Unknown stage: $s" } }
 $root = (Resolve-Path "$PSScriptRoot\..").Path
 $dist = Join-Path $root 'dist'
 Set-Location $root
@@ -37,7 +37,7 @@ $engineOut = Join-Path $dist "engine-$Edition"
 $electronOut = Join-Path $dist 'electron'
 $releaseDir = Join-Path $dist $name
 $appDir = Join-Path $releaseDir 'UT Stems'
-function Want($s) { return ($Stage -contains 'all') -or ($Stage -contains $s) }
+function Want($s) { return (($Stage -contains 'all') -and ($s -in 'engine', 'tauri')) -or ($Stage -contains $s) }
 function Run { param([string]$exe, [string[]]$arguments) & $exe @arguments; if ($LASTEXITCODE -ne 0) { throw "$exe failed ($LASTEXITCODE)" } }
 
 if (Want 'engine') {
@@ -59,6 +59,25 @@ if (Want 'engine') {
   Run (Join-Path $engineOut 'ut-stems.exe') @('--version')
   $size = (Get-ChildItem $engineOut -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
   Write-Host ("   engine: {0:N0} MB" -f $size)
+}
+
+if (Want 'tauri') {
+  Write-Host "== Installer ($Edition) with Tauri"
+  if (-not (Test-Path $engineOut)) { throw "No engine at $engineOut; run the engine stage first" }
+  $cargo = Join-Path $env:USERPROFILE '.cargo\bin'
+  if (Test-Path $cargo) { $env:PATH = "$cargo;$env:PATH" }
+  # The engine folder goes into the installer as engine\ next to the executable.
+  $override = Join-Path $dist "tauri-$Edition.json"
+  @{ bundle = @{ resources = @{ (($engineOut -replace '\\', '/') + '/**/*') = 'engine/' } } } |
+    ConvertTo-Json -Depth 5 | Set-Content $override -Encoding utf8
+  Run 'npx.cmd' @('tauri', 'build', '--config', $override, '--bundles', 'nsis')
+  $setup = Get-ChildItem (Join-Path $root 'src-tauri\target\release\bundle\nsis') -Filter '*-setup.exe' | Sort-Object LastWriteTime | Select-Object -Last 1
+  if (-not $setup) { throw 'Tauri produced no installer' }
+  $target = Join-Path $dist "$name-setup.exe"
+  Move-Item $setup.FullName $target -Force
+  '{0}  {1}' -f (Get-FileHash $target -Algorithm SHA256).Hash.ToLower(), (Split-Path $target -Leaf) |
+    Set-Content (Join-Path $dist "$name-setup.sha256") -Encoding ascii
+  Write-Host ('   {0}: {1:N0} MB' -f (Split-Path $target -Leaf), ((Get-Item $target).Length / 1MB))
 }
 
 if (Want 'electron') {

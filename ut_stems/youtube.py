@@ -83,14 +83,16 @@ def download_mp3(url: str, dest_dir: Path, progress: Callable[[float], None] = l
         "ffmpeg_location": ffmpeg_dir(),
         "socket_timeout": 20, "retries": 2, "fragment_retries": 2,
     }
-    # YouTube needs a JavaScript runtime to solve its player challenges. The packaged app
-    # points UT_STEMS_NODE at its own Electron, which runs as Node; otherwise use PATH.
+    # YouTube needs a JavaScript runtime to solve its player challenges. The installed app
+    # carries QuickJS (qjs.exe) in its engine folder, which is on PATH; a source checkout uses
+    # whatever is on PATH. UT_STEMS_NODE / UT_STEMS_QJS name a runtime explicitly.
     runtimes = {}
-    node = os.environ.get("UT_STEMS_NODE")
-    if node and Path(node).is_file():
-        runtimes["node"] = {"path": node}
-    for runtime in ("deno", "node"):
-        if runtime not in runtimes and shutil.which(runtime):
+    for runtime, variable in (("node", "UT_STEMS_NODE"), ("quickjs", "UT_STEMS_QJS")):
+        given = os.environ.get(variable)
+        if given and Path(given).is_file():
+            runtimes[runtime] = {"path": given}
+    for runtime, executable in (("deno", "deno"), ("node", "node"), ("quickjs", "qjs")):
+        if runtime not in runtimes and shutil.which(executable):
             runtimes[runtime] = {}
     if runtimes:
         opts["js_runtimes"] = runtimes

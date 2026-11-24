@@ -43,3 +43,7 @@ diagnostics/
 .agents/
 .claude/skills/
 skills-lock.json
+
+# tauri
+src-tauri/target/
+src-tauri/gen/

@@ -1,4 +1,5 @@
-// Renders web/icon.svg to packaging/icon.ico with Electron:  electron packaging/make-icon.cjs
+// Renders web/icon.svg to packaging/icon.ico and packaging/icon.png (1024 px, for `tauri icon`)
+// with Electron:  electron packaging/make-icon.cjs
 const {app, BrowserWindow, nativeImage} = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -23,14 +24,15 @@ function ico(pngs) {
 app.whenReady().then(async () => {
   const svg = fs.readFileSync(path.join(__dirname, '..', 'web', 'icon.svg'), 'utf8');
   const html = `<!doctype html><html><body style="margin:0;background:transparent">` +
-    `<img src="data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}" width="256" height="256" style="display:block"></body></html>`;
-  const win = new BrowserWindow({show: false, width: 256, height: 256, transparent: true, frame: false,
+    `<img src="data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}" width="1024" height="1024" style="display:block"></body></html>`;
+  const win = new BrowserWindow({show: false, width: 1024, height: 1024, transparent: true, frame: false,
     useContentSize: true, webPreferences: {offscreen: true}});
   await win.loadURL('data:text/html;base64,' + Buffer.from(html).toString('base64'));
   await new Promise(resolve => setTimeout(resolve, 300));
-  const image = await win.webContents.capturePage({x: 0, y: 0, width: 256, height: 256});
+  const image = await win.webContents.capturePage({x: 0, y: 0, width: 1024, height: 1024});
+  fs.writeFileSync(path.join(__dirname, 'icon.png'), image.toPNG());
   const pngs = SIZES.map(size => ({size, png: image.resize({width: size, height: size, quality: 'best'}).toPNG()}));
   fs.writeFileSync(path.join(__dirname, 'icon.ico'), ico(pngs));
-  console.log('wrote packaging/icon.ico', image.getSize());
+  console.log('wrote packaging/icon.ico and icon.png', image.getSize());
   app.quit();
 }).catch(error => { console.error(error); app.exit(1); });
