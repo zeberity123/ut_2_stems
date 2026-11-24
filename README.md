@@ -92,10 +92,10 @@ Without git, use **Code > Download ZIP** on GitHub, unzip, and run `setup.bat` i
 `setup.bat` does four things:
 
 1. installs ffmpeg if it is missing
-2. installs Node.js if it is missing (for the desktop window and for YouTube downloads)
+2. installs Node.js if it is missing (for YouTube downloads and the Tauri command line)
 3. installs the Python packages into your default Python, with no virtual environment. PyTorch is
    a download of about 2.5 GB; an existing PyTorch is kept as it is.
-4. installs Electron for the desktop window
+4. installs the Node packages (the Tauri command line and Playwright, for the tests)
 
 If it had to install ffmpeg or Node.js, start `run.bat` from a new window so they are found.
 The first separation downloads the model checkpoint (about 670 MB) to
@@ -108,7 +108,7 @@ The repository holds only code. Songs, separated stems and model files are never
 ### Desktop app
 
 Double-click `run.bat`. It opens the Tauri window if it has been built (`cargo build` in
-`src-tauri`), otherwise the Electron window (`npm install`), otherwise the interface in your browser.
+`src-tauri`), otherwise the interface in your browser.
 
 1. Paste a YouTube link, choose files, or drop files on the window.
 2. Select the stems you want.
@@ -143,48 +143,6 @@ Under **Advanced** → *Files* there are two toggles, both on by default:
 - **Keep original MP3**: the downloaded song stays next to the stems as `<songname>.mp3`. Off, it
   is deleted once the stems are written. Files you chose yourself are never deleted.
 
-### Separating for other PCs
-
-One PC with a good graphics card can separate songs for others. The other PCs need no graphics
-card and no Python: they show the same window, send links and files, and get the stems back into
-their own output folder.
-
-**On the PC that separates** (this one), double-click `ut_stems_server.bat` and keep its window
-open. The first time, it adds a Windows Firewall rule for port 47900 (Windows asks for
-permission). The window lists the PC's addresses.
-
-**On the other PCs**, start `ut_stems_client.bat` (from a copy of this folder with `npm install`
-done) or the packaged *UT Stems Client* (`packaging\build.ps1 -Stage client`, about 100 MB, no
-setup).
-
-1. A server on the same network shows up by itself; press **Connect**. From elsewhere, type the
-   server's address once (for example `210.96.103.95`); it is remembered.
-2. A window on the server PC asks whether to let that PC in and shows a four-digit code; the client
-   shows the same code. Press **Yes** if they match. This happens once per PC.
-3. After that the client connects straight away, from anywhere the server can be reached.
-
-Each PC sees only its own songs. Songs from all PCs wait in one queue on the server and are
-separated one at a time. Files go to the server, which keeps its copies only while the song is in
-the client's list (and never across a restart of the server). Renaming a finished song renames the
-saved copies on the client as well. **on <server> ✕** at the top right disconnects.
-
-On the server:
-
-```
-python -m ut_stems.remote --list            the registered PCs
-python -m ut_stems.remote --revoke NAME     remove one (it has to register again)
-```
-
-How it is secured: the connection is HTTPS with a certificate the server makes on its first start
-(in `%APPDATA%\UT Stems Server`), and the client accepts only the certificate it saw when it
-registered. A registered PC holds a key of its own; the server stores only a hash of it. Only one
-registration question is shown at a time, a PC that was turned down waits a minute, and there are
-at most 20 questions an hour. Other PCs can add links and upload audio files, but never name a file
-or folder on the server. The server finds and is found only on its own network (UDP broadcast on
-port 47900); from outside, the address is typed. A server behind a router needs TCP port 47900
-forwarded to it, or a VPN such as Tailscale; a PC with a public address, like the one this was
-built on, needs nothing else.
-
 ### Command line
 
 The `ut-stems` command works from any folder.
@@ -213,13 +171,10 @@ ut-stems "https://youtu.be/suv0x6HfRhw" --stems vocals,bass,drums,guitars
 | Separation, YouTube download, MP3 I/O | `ut_stems/` (Python) |
 | One pipeline shared by the app and the command | `ut_stems/pipeline.py` |
 | Local server for the app (127.0.0.1, session token) | `ut_stems/server.py` |
-| Server for other PCs (HTTPS, registration, discovery) | `ut_stems/remote.py` |
-| Client window for other PCs | `desktop/client.cjs`, `desktop/setup.html` |
 | Interface | `web/` (plain HTML, CSS and JS; light and dark; set in [Pretendard](https://github.com/orioncactus/pretendard), SIL OFL, `web/fonts/`) |
 | Interactive parts of the interface | ported from [Lucian UX/UI Prompt](https://lucianlabs.dev/uxui-prompt/) (MIT), see `web/styles.css` |
 | Desktop shell | `src-tauri/` (Rust, Tauri 2, the WebView2 that comes with Windows) |
-| Older desktop shell and the remote client | `desktop/` (Electron; kept for reference, not packaged any more) |
-| Standalone build | `packaging/` (PyInstaller spec, Electron packager, `build.ps1`) |
+| Standalone build | `packaging/` (PyInstaller spec, `build.ps1`) |
 
 The app structure follows [yt_to_score](https://github.com/zeberity123/yt_to_score); the YouTube audio
 download follows [ut_downloader](https://github.com/zeberity123/ut_downloader). The interface keeps to
@@ -236,8 +191,6 @@ a choice the app follows Windows.
 python -m pytest             fast tests, no model needed
 python -m pytest -m slow     separation on a short clip, needs the GPU
 npm run test:tauri           the Tauri window: separates a clip, renames it, closes, engine stops
-npm run test:desktop         the Electron window: queues two clips, checks the list and the mixer
-npm run test:client          server + client: registers, sends a clip, saves, renames, is removed
 ```
 
 `test:tauri` drives the WebView2 window through Playwright over the DevTools protocol; set
@@ -256,9 +209,6 @@ packaging\build.ps1 -Edition cpu -Python C:\envs\cpu\Scripts\python.exe  # a Pyt
 
 The engine stage also fetches [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (MIT, pinned by
 hash) into the engine folder: yt-dlp needs a JavaScript runtime for YouTube, and this one is 1.9 MB.
-
-`packaging\build.ps1 -Stage client` builds only UT Stems Client (`dist\UT-Stems-Client-<version>-win64.zip`),
-which needs neither Python nor an edition.
 
 The result is `dist\UT-Stems-<version>-win64-<edition>-setup.exe`, an NSIS installer that installs
 for the current user (no administrator rights). It is built in two stages: `engine` makes the Python

@@ -44,8 +44,6 @@ where npm >nul 2>nul
 if errorlevel 1 goto :no_node
 call npm install
 if errorlevel 1 goto :failed
-if not exist "node_modules\electron\dist\electron.exe" node node_modules\electron\install.js
-if not exist "node_modules\electron\dist\electron.exe" goto :failed
 
 echo.
 python -c "import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'not found - separation will run on the CPU and be slow')"

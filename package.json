@@ -3,22 +3,17 @@
   "productName": "UT Stems",
   "version": "0.6.0",
   "private": true,
-  "description": "Desktop app that splits a song (file or YouTube link) into MP3 stems.",
-  "main": "desktop/main.cjs",
+  "description": "Desktop app that splits a song (file or YouTube link) into stems.",
+  "main": "src-tauri/tauri.conf.json",
   "author": "zeberity123",
   "scripts": {
     "start": "tauri dev --no-dev-server --no-watch",
     "tauri": "tauri",
-    "electron": "electron .",
-    "client": "electron desktop/client.cjs",
-    "test:tauri": "node scripts/test-tauri.cjs",
-    "test:desktop": "node scripts/test-desktop.cjs",
-    "test:client": "node scripts/test-client.cjs"
+    "test:tauri": "node scripts/test-tauri.cjs"
   },
   "devDependencies": {
     "@tauri-apps/api": "^2.12.5",
     "@tauri-apps/cli": "^2.12.6",
-    "electron": "44.5.1",
     "playwright": "1.63.0"
   }
 }

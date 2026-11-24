@@ -99,7 +99,7 @@ async function waitFor(check, {timeout = 30000, every = 300, what = 'condition'}
 
     await page.waitForFunction(() => document.querySelector('#status')?.textContent.includes('Paste a YouTube link'), null, {timeout: 60000});
     assert.ok(await page.evaluate(() => Boolean(window.desktop?.tauri)), 'The Tauri bridge is in place');
-    if (!real) {
+    if (!real && !setup) {  // release builds rightly refuse the http test endpoint
       await page.waitForFunction(() => !document.querySelector('#update').hidden, null, {timeout: 30000});
       assert.match(await page.locator('#update-text').textContent(), /99\.0\.0/, 'The update toast names the version');
       await screenshot('update');
