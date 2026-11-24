@@ -43,7 +43,7 @@ const running = () => execFileSync('powershell', ['-NoProfile', '-Command', "@(G
     await sleep(1500);
     const page = browser.contexts().flatMap(c => c.pages()).find(p => /^http:\/\/tauri\.localhost\/(index\.html)?$|^http:\/\/127\.0\.0\.1/.test(p.url()));
     assert.ok(page, 'the app page (an engine is in place)');
-    await page.waitForFunction(() => !document.querySelector('#update').hidden, null, {timeout: 60000});
+    await page.waitForFunction(() => document.querySelector('#update')?.hidden === false, null, {timeout: 60000});
     const text = await page.locator('#update-text').textContent();
     console.log(`toast: ${text}`);
     assert.ok(text.includes(expected), `the toast offers ${expected}`);
